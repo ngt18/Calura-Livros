@@ -10,18 +10,41 @@ RF03 — Consultar livros
 O sistema deverá exibir os livros cadastrados e informar se estão disponíveis.
 
 RF04 — Cadastrar livros
-O sistema deverá permitir que o responsável pela biblioteca cadastre novos livros.
+O sistema deverá permitir que o responsável pela biblioteca cadastre novos livros, incluindo a quantidade de páginas.
 
 RF05 — Reservar livro
 O sistema deverá permitir que um usuário reserve um livro disponível.
+Ao reservar, o sistema deve calcular automaticamente:
+  - Data do empréstimo (data da reserva)
+  - Data prevista de devolução (data do empréstimo + prazo baseado nas páginas do livro)
+O prazo de empréstimo é definido por faixa de páginas:
+  - Até 150 páginas: 7 dias
+  - 151 a 300 páginas: 10 dias
+  - 301 a 500 páginas: 15 dias
+  - Acima de 500 páginas: 20 dias
 
 RF06 — Consultar reservas
-O sistema deverá permitir que o usuário visualize suas reservas.
+O sistema deverá permitir que o usuário visualize suas reservas com:
+  - Data do empréstimo
+  - Data prevista de devolução
+  - Status calculado automaticamente
+  - Dias restantes ou dias em atraso
 
-RF07 — Cancelar reserva
+RF07 — Devolver livro
+O sistema deverá permitir que o usuário ou o administrador registre a devolução de um livro, salvando automaticamente a data de devolução.
+
+RF08 — Cancelar reserva
 O sistema deverá permitir que o usuário cancele uma reserva.
 
-RF08 — Editar e excluir registros
+RF09 — Status automático
+O sistema deverá calcular o status da reserva automaticamente com base nas datas:
+  - EM_ANDAMENTO: data atual não ultrapassou a data prevista e não foi devolvido
+  - ATRASADO: data atual ultrapassou a data prevista e ainda não foi devolvido
+  - DEVOLVIDO: possui data de devolução registrada
+  - CANCELADO: foi cancelado manualmente
+Não deve existir marcação manual de atraso.
+
+RF10 — Editar e excluir registros
 O sistema deverá permitir editar ou excluir usuários, livros e reservas.
 
 Requisitos Não Funcionais

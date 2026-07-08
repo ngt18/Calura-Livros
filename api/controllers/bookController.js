@@ -5,6 +5,7 @@ const BOOK_SELECT = `
     l.id_livro,
     l.titulo,
     l.autor,
+    l.paginas,
     CASE
       WHEN EXISTS (
         SELECT 1
@@ -29,6 +30,11 @@ function normalizeBoolean(value, fallback) {
     return ["true", "1", "sim", "yes"].includes(value.toLowerCase());
   }
   return fallback;
+}
+
+function normalizeNumber(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? fallback : n;
 }
 
 async function getBooks(req, res) {
@@ -68,6 +74,7 @@ async function getBookById(req, res) {
 async function createBook(req, res) {
   const titulo = normalizeString(req.body.titulo);
   const autor = normalizeString(req.body.autor);
+  const paginas = normalizeNumber(req.body.paginas, 0);
   const disponivel = normalizeBoolean(req.body.disponivel, true);
 
   if (!titulo || !autor) {
@@ -76,8 +83,8 @@ async function createBook(req, res) {
 
   try {
     const [result] = await pool.query(
-      "INSERT INTO livros (titulo, autor, disponivel) VALUES (?, ?, ?)",
-      [titulo, autor, disponivel]
+      "INSERT INTO livros (titulo, autor, paginas, disponivel) VALUES (?, ?, ?, ?)",
+      [titulo, autor, paginas, disponivel]
     );
 
     const [rows] = await pool.query(
@@ -96,6 +103,7 @@ async function updateBook(req, res) {
   const id = parseInt(req.params.id, 10);
   const titulo = req.body.titulo === undefined ? undefined : normalizeString(req.body.titulo);
   const autor = req.body.autor === undefined ? undefined : normalizeString(req.body.autor);
+  const paginas = req.body.paginas === undefined ? undefined : normalizeNumber(req.body.paginas, 0);
   const disponivel = req.body.disponivel === undefined
     ? undefined
     : normalizeBoolean(req.body.disponivel, true);
@@ -104,7 +112,7 @@ async function updateBook(req, res) {
     return res.status(400).json({ error: "Invalid ID" });
   }
 
-  if (titulo === undefined && autor === undefined && disponivel === undefined) {
+  if (titulo === undefined && autor === undefined && paginas === undefined && disponivel === undefined) {
     return res.status(400).json({ error: "Send at least one field" });
   }
 
@@ -137,6 +145,11 @@ async function updateBook(req, res) {
     if (autor !== undefined) {
       updates.push("autor = ?");
       params.push(autor);
+    }
+
+    if (paginas !== undefined) {
+      updates.push("paginas = ?");
+      params.push(paginas);
     }
 
     if (disponivel !== undefined) {

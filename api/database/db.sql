@@ -14,12 +14,16 @@ CREATE TABLE livros (
     id_livro INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(150) NOT NULL,
     autor VARCHAR(100) NOT NULL,
+    paginas INT DEFAULT 0,
     disponivel BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE reservas (
     id_reserva INT AUTO_INCREMENT PRIMARY KEY,
     data_reserva DATE NOT NULL,
+    data_emprestimo DATE,
+    data_prevista DATE,
+    data_devolucao DATE,
     status VARCHAR(30) DEFAULT 'ATIVA',
     id_usuario INT NOT NULL,
     id_livro INT NOT NULL,

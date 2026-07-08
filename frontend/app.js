@@ -22,6 +22,7 @@ const state = {
   users: [],
   selectedBook: null,
   sidebarOpen: false,
+  loading: false,
 };
 
 function navigate(screen) {
@@ -30,13 +31,15 @@ function navigate(screen) {
   render();
 }
 
-function showToast(msg) {
+function showToast(msg, isError) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
   const toast = document.createElement('div');
-  toast.className = 'toast';
+  toast.className = 'toast' + (isError ? ' toast-error' : '');
   toast.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${isError ? '#ef4444' : '#10b981'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isError
+      ? '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
+      : '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'}</svg>
     <span>${msg}</span>
     <button class="toast-close" onclick="this.parentElement.remove()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -46,20 +49,62 @@ function showToast(msg) {
   setTimeout(() => toast.remove(), 4000);
 }
 
+function showError(msg) {
+  showToast(msg, true);
+}
+
 function formatDate(value) {
-  if (!value) return '-';
+  if (!value) return '';
   return String(value).split('T')[0];
+}
+
+function todayLocal() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function calcLoanDays(paginas) {
+  const p = Number(paginas) || 0;
+  if (p <= 150) return 7;
+  if (p <= 300) return 10;
+  if (p <= 500) return 15;
+  return 20;
+}
+
+function computeStatus(loan) {
+  if (loan.status === 'returned' || loan.status === 'cancelled') return loan.status;
+  if (loan.dataDevolucao) return 'returned';
+  if (!loan.dataPrevista) return 'active';
+  if (todayLocal() > loan.dataPrevista) return 'overdue';
+  return 'active';
+}
+
+function getDaysDiff(targetDate) {
+  if (!targetDate) return 0;
+  const hoje = new Date(todayLocal() + 'T23:59:59');
+  const target = new Date(targetDate + 'T23:59:59');
+  return Math.ceil((target - hoje) / (1000 * 60 * 60 * 24));
+}
+
+function daysInfo(loan) {
+  const computed = computeStatus(loan);
+  if (computed === 'returned' || computed === 'cancelled') return '';
+  if (computed === 'overdue') {
+    const diff = getDaysDiff(loan.dataPrevista);
+    return `<span style="color:var(--red-600);font-size:12px;font-weight:500">${Math.abs(diff)} dias em atraso</span>`;
+  }
+  const diff = getDaysDiff(loan.dataPrevista);
+  return `<span style="color:var(--blue-600);font-size:12px;font-weight:500">${diff} dias restantes</span>`;
 }
 
 function statusBadge(status) {
   const className = status === 'active'
-    ? 'badge-green'
+    ? 'badge-blue'
     : status === 'overdue'
       ? 'badge-red'
       : status === 'cancelled'
         ? 'badge-yellow'
         : 'badge-slate';
-
   return `<span class="badge ${className}">${STATUS_LABELS[status] || status}</span>`;
 }
 
@@ -91,7 +136,7 @@ function icon(name) {
     refresh: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
     eyeOff: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
     eyeOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-    chevron: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+    spinner: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinner"><circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg>',
   };
   return icons[name] || '';
 }
@@ -101,6 +146,7 @@ function mapBook(b) {
     id: b.id_livro,
     title: b.titulo || 'Sem titulo',
     author: b.autor || 'Desconhecido',
+    paginas: Number(b.paginas) || 0,
     available: Number(b.disponivel) ? 1 : 0,
     total: 1,
     cover: COVER_DEFAULT,
@@ -114,11 +160,16 @@ function mapReservation(r) {
     bookId: r.id_livro,
     userId: r.id_usuario,
     borrowDate: formatDate(r.data_reserva),
-    status: STATUS_MAP[rawStatus] || 'overdue',
+    dataEmprestimo: formatDate(r.data_emprestimo),
+    dataPrevista: formatDate(r.data_prevista),
+    dataDevolucao: formatDate(r.data_devolucao),
+    status: STATUS_MAP[rawStatus] || 'active',
   };
 }
 
 async function loadData() {
+  state.loading = true;
+  renderContent();
   try {
     const [books, reservations, users] = await Promise.all([
       fetchBooks().catch(() => []),
@@ -130,25 +181,29 @@ async function loadData() {
     state.users = users;
   } catch (e) {
     console.error('Erro ao carregar dados:', e);
+  } finally {
+    state.loading = false;
+    renderContent();
   }
 }
 
 async function handleLogin(email, senha) {
   try {
     const user = await loginUser(email, senha);
+    if (!user) { showError('Resposta invalida do servidor'); return; }
     state.user = { id: user.id_usuario, nome: user.nome, email: user.email };
     state.isAdmin = false;
     await loadData();
     navigate('dashboard');
   } catch (e) {
-    alert(e.message);
+    showError(e.message);
   }
 }
 
 function handleAdminLogin() {
   state.user = { id: 999, nome: 'Admin', email: 'admin@caluralivros.com' };
   state.isAdmin = true;
-  loadData().then(() => navigate('admin-dashboard'));
+  loadData().then(() => navigate('admin-dashboard')).catch(console.error);
 }
 
 function handleLogout() {
@@ -163,6 +218,10 @@ function handleLogout() {
 function toggleSidebar() {
   state.sidebarOpen = !state.sidebarOpen;
   render();
+}
+
+function renderLoading() {
+  return '<div style="display:flex;justify-content:center;align-items:center;padding:64px;color:var(--slate-400)">' + icon('spinner') + ' <span style="margin-left:12px">Carregando...</span></div>';
 }
 
 // ─── Render ───────────────────────────────────────────────────────
@@ -210,9 +269,6 @@ function renderLogin() {
                 <button id="toggle-pass" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--slate-400);cursor:pointer;">${icon('eyeOff')}</button>
               </div>
             </div>
-            <div style="text-align:right">
-              <a href="#" style="font-size:14px;color:var(--blue-600);font-weight:500;">Esqueci minha senha</a>
-            </div>
             <button class="btn btn-primary btn-lg" id="btn-login" style="width:100%">Entrar</button>
             <div class="login-divider"><hr /><span>ou</span><hr /></div>
             <button class="btn btn-yellow btn-lg" id="btn-admin" style="width:100%">Entrar como Administrador</button>
@@ -254,49 +310,64 @@ function bindLogin() {
   const loginForm = document.getElementById('login-form');
   const regForm = document.getElementById('register-form');
 
-  tabLogin.onclick = () => {
+  if (tabLogin) tabLogin.onclick = () => {
     tabLogin.classList.add('active');
-    tabReg.classList.remove('active');
-    loginForm.style.display = '';
-    regForm.style.display = 'none';
+    if (tabReg) tabReg.classList.remove('active');
+    if (loginForm) loginForm.style.display = '';
+    if (regForm) regForm.style.display = 'none';
   };
-  tabReg.onclick = () => {
+  if (tabReg) tabReg.onclick = () => {
     tabReg.classList.add('active');
-    tabLogin.classList.remove('active');
-    regForm.style.display = '';
-    loginForm.style.display = 'none';
+    if (tabLogin) tabLogin.classList.remove('active');
+    if (regForm) regForm.style.display = '';
+    if (loginForm) loginForm.style.display = 'none';
   };
 
-  document.getElementById('toggle-pass').onclick = () => {
+  const togglePass = document.getElementById('toggle-pass');
+  if (togglePass) togglePass.onclick = () => {
     const inp = document.getElementById('login-pass');
-    const btn = document.getElementById('toggle-pass');
-    if (inp.type === 'password') { inp.type = 'text'; btn.innerHTML = icon('eyeOn'); }
-    else { inp.type = 'password'; btn.innerHTML = icon('eyeOff'); }
+    if (inp) {
+      if (inp.type === 'password') { inp.type = 'text'; togglePass.innerHTML = icon('eyeOn'); }
+      else { inp.type = 'password'; togglePass.innerHTML = icon('eyeOff'); }
+    }
   };
 
-  document.getElementById('btn-login').onclick = () => {
-    const email = document.getElementById('login-email').value.trim();
-    const senha = document.getElementById('login-pass').value;
-    if (!email || !senha) { alert('Digite e-mail e senha'); return; }
-    handleLogin(email, senha);
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) btnLogin.onclick = () => {
+    const email = document.getElementById('login-email');
+    const senha = document.getElementById('login-pass');
+    if (!email || !senha) return;
+    const e = email.value.trim();
+    const s = senha.value;
+    if (!e || !s) { showError('Digite e-mail e senha'); return; }
+    if (!e.includes('@')) { showError('Digite um e-mail valido'); return; }
+    handleLogin(e, s);
   };
 
-  document.getElementById('btn-admin').onclick = handleAdminLogin;
+  const btnAdmin = document.getElementById('btn-admin');
+  if (btnAdmin) btnAdmin.onclick = handleAdminLogin;
 
-  document.getElementById('btn-register').onclick = async () => {
-    const nome = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const senha = document.getElementById('reg-pass').value;
-    if (!nome || !email || !senha) { alert('Preencha todos os campos'); return; }
-    if (senha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres'); return; }
+  const btnRegister = document.getElementById('btn-register');
+  if (btnRegister) btnRegister.onclick = async () => {
+    const nome = document.getElementById('reg-name');
+    const email = document.getElementById('reg-email');
+    const senha = document.getElementById('reg-pass');
+    if (!nome || !email || !senha) return;
+    const n = nome.value.trim();
+    const e = email.value.trim();
+    const s = senha.value;
+    if (!n || !e || !s) { showError('Preencha todos os campos'); return; }
+    if (s.length < 6) { showError('A senha deve ter pelo menos 6 caracteres'); return; }
+    if (!e.includes('@')) { showError('Digite um e-mail valido'); return; }
     try {
-      const user = await createUser({ nome, email, senha });
+      const user = await createUser({ nome: n, email: e, senha: s });
+      if (!user) { showError('Resposta invalida do servidor'); return; }
       state.user = { id: user.id_usuario || user.id, nome: user.nome, email: user.email };
       state.isAdmin = false;
       await loadData();
       navigate('dashboard');
-    } catch (e) {
-      alert(e.message);
+    } catch (err) {
+      showError(err.message);
     }
   };
 }
@@ -308,12 +379,12 @@ function renderLayout() {
   const titles = {
     dashboard: 'Catalogo',
     'book-detail': 'Detalhes do Livro',
-    'my-loans': 'Meus Emprestimos',
+    'my-loans': 'Minhas Reservas',
     profile: 'Perfil',
     'admin-dashboard': 'Dashboard',
     'admin-books': 'Gestao de Livros',
     'admin-users': 'Usuarios',
-    'admin-loans': 'Emprestimos',
+    'admin-loans': 'Reservas',
   };
 
   return `
@@ -350,14 +421,14 @@ function renderSidebar() {
   const s = state.screen;
   const userNav = [
     { icon: 'home', label: 'Inicio', screen: 'dashboard' },
-    { icon: 'clipboard', label: 'Meus Emprestimos', screen: 'my-loans' },
+    { icon: 'clipboard', label: 'Minhas Reservas', screen: 'my-loans' },
     { icon: 'user', label: 'Perfil', screen: 'profile' },
   ];
   const adminNav = [
     { icon: 'dashboard', label: 'Dashboard', screen: 'admin-dashboard' },
     { icon: 'book', label: 'Livros', screen: 'admin-books' },
     { icon: 'users', label: 'Usuarios', screen: 'admin-users' },
-    { icon: 'clipboard', label: 'Emprestimos', screen: 'admin-loans' },
+    { icon: 'clipboard', label: 'Reservas', screen: 'admin-loans' },
   ];
   const nav = state.isAdmin ? adminNav : userNav;
 
@@ -384,9 +455,12 @@ function renderSidebar() {
 }
 
 function bindLayout() {
-  document.getElementById('menu-btn')?.addEventListener('click', toggleSidebar);
-  document.getElementById('overlay')?.addEventListener('click', () => { state.sidebarOpen = false; render(); });
-  document.getElementById('btn-logout')?.addEventListener('click', handleLogout);
+  const menuBtn = document.getElementById('menu-btn');
+  if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.addEventListener('click', () => { state.sidebarOpen = false; render(); });
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.nav));
@@ -400,6 +474,10 @@ function bindLayout() {
 function renderContent() {
   const c = document.getElementById('content');
   if (!c) return;
+  if (state.loading) {
+    c.innerHTML = renderLoading();
+    return;
+  }
   switch (state.screen) {
     case 'dashboard': c.innerHTML = renderDashboard(); bindDashboard(); break;
     case 'book-detail': c.innerHTML = renderBookDetail(); bindBookDetail(); break;
@@ -420,7 +498,7 @@ function renderDashboard() {
     total: books.length,
     available: books.filter(b => b.available > 0).length,
     loaned: books.filter(b => b.available === 0).length,
-    myActive: state.user ? state.loans.filter(l => l.userId === state.user.id && l.status === 'active').length : 0,
+    myActive: state.user ? state.loans.filter(l => l.userId === state.user.id && computeStatus(l) === 'active').length : 0,
   };
   const filtered = books;
 
@@ -479,7 +557,7 @@ function renderBookCard(book) {
       <div class="book-cover">
         <img src="${book.cover}" alt="${book.title}" loading="lazy" />
         <span class="cover-badge badge ${avail ? 'badge-green' : 'badge-red'}">${avail ? 'Disponivel' : 'Emprestado'}</span>
-        <span class="cover-rating">${icon('star')} ${book.id * 4.5 % 5 === 0 ? '4.5' : (4 + (book.id % 10) / 10).toFixed(1)}</span>
+        <span class="cover-rating">${icon('star')} ${(4 + (book.id % 10) / 10).toFixed(1)}</span>
       </div>
       <div class="book-info">
         <div class="book-category">${CATEGORIES[book.id % CATEGORIES.length] || 'Geral'}</div>
@@ -512,7 +590,8 @@ function bindDashboard() {
     bindBookCards();
   };
 
-  document.getElementById('search-input')?.addEventListener('input', e => {
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) searchInput.addEventListener('input', e => {
     searchQuery = e.target.value;
     filterBooks();
   });
@@ -531,12 +610,15 @@ function bindDashboard() {
       card.addEventListener('click', (e) => {
         if (e.target.closest('[data-borrow]')) {
           e.stopPropagation();
-          handleBorrow(parseInt(e.target.closest('[data-borrow]').dataset.borrow));
+          const id = parseInt(e.target.closest('[data-borrow]').dataset.borrow, 10);
+          if (!Number.isNaN(id)) handleBorrow(id);
           return;
         }
-        const id = parseInt(card.dataset.bookId);
-        const book = state.books.find(b => b.id === id);
-        if (book) { state.selectedBook = book; navigate('book-detail'); }
+        const id = parseInt(card.dataset.bookId, 10);
+        if (!Number.isNaN(id)) {
+          const book = state.books.find(b => b.id === id);
+          if (book) { state.selectedBook = book; navigate('book-detail'); }
+        }
       });
     });
   }
@@ -553,12 +635,12 @@ async function handleBorrow(bookId) {
       id_usuario: state.user.id,
       id_livro: bookId,
     });
-    showToast('Emprestimo solicitado com sucesso!');
+    showToast('Reserva solicitada com sucesso!');
     await loadData();
     state.selectedBook = state.books.find(b => b.id === bookId) || state.selectedBook;
     if (state.screen === 'dashboard' || state.screen === 'book-detail') renderContent();
   } catch (e) {
-    alert(e.message);
+    showError(e.message);
   }
 }
 
@@ -568,6 +650,7 @@ function renderBookDetail() {
   const book = state.selectedBook;
   if (!book) return '<p>Livro nao encontrado</p>';
   const avail = book.available > 0;
+  const dias = calcLoanDays(book.paginas);
   return `
     <button class="detail-back" id="btn-back">${icon('arrowLeft')} Voltar ao catalogo</button>
     <div class="detail-card">
@@ -587,11 +670,13 @@ function renderBookDetail() {
           <div class="meta-item"><div class="label">Editora</div><div class="value">-</div></div>
           <div class="meta-item"><div class="label">Ano</div><div class="value">-</div></div>
           <div class="meta-item"><div class="label">ISBN</div><div class="value">-</div></div>
+          <div class="meta-item"><div class="label">Paginas</div><div class="value">${book.paginas || '-'}</div></div>
+          <div class="meta-item"><div class="label">Prazo de emprestimo</div><div class="value">${dias} dias</div></div>
           <div class="meta-item"><div class="label">Disponiveis</div><div class="value">${book.available} de ${book.total}</div></div>
         </div>
         <div class="detail-synopsis">
           <h3>Sinopse</h3>
-          <p>${book.title} esta cadastrado no acervo da biblioteca com autoria de ${book.author}. Use a disponibilidade abaixo para solicitar o emprestimo quando houver exemplar livre.</p>
+          <p>${book.title} esta cadastrado no acervo da biblioteca com autoria de ${book.author}. Use a disponibilidade abaixo para solicitar a reserva quando houver exemplar livre.</p>
         </div>
         <div class="avail-bar">
           <div class="avail-header">
@@ -604,7 +689,7 @@ function renderBookDetail() {
         </div>
         <div class="detail-actions">
           ${avail
-            ? `<button class="btn btn-primary btn-lg" id="btn-detail-borrow">${icon('book')} Solicitar Emprestimo</button>`
+            ? `<button class="btn btn-primary btn-lg" id="btn-detail-borrow">${icon('book')} Solicitar Reserva</button>`
             : `<button class="btn btn-secondary btn-lg" disabled>${icon('clock')} Indisponivel no momento</button>`
           }
           <button class="btn btn-ghost btn-lg" id="btn-detail-back">${icon('arrowLeft')} Voltar</button>
@@ -615,9 +700,12 @@ function renderBookDetail() {
 }
 
 function bindBookDetail() {
-  document.getElementById('btn-back')?.addEventListener('click', () => navigate('dashboard'));
-  document.getElementById('btn-detail-back')?.addEventListener('click', () => navigate('dashboard'));
-  document.getElementById('btn-detail-borrow')?.addEventListener('click', () => {
+  const btnBack = document.getElementById('btn-back');
+  if (btnBack) btnBack.addEventListener('click', () => navigate('dashboard'));
+  const btnDetailBack = document.getElementById('btn-detail-back');
+  if (btnDetailBack) btnDetailBack.addEventListener('click', () => navigate('dashboard'));
+  const btnBorrow = document.getElementById('btn-detail-borrow');
+  if (btnBorrow) btnBorrow.addEventListener('click', () => {
     if (state.selectedBook) handleBorrow(state.selectedBook.id);
   });
 }
@@ -626,11 +714,17 @@ function bindBookDetail() {
 
 function renderMyLoans() {
   const myLoans = state.user ? state.loans.filter(l => l.userId === state.user.id) : [];
-  const active = myLoans.filter(l => l.status === 'active' || l.status === 'overdue');
-  const history = myLoans.filter(l => l.status === 'returned' || l.status === 'cancelled');
+  const loansWithComputed = myLoans.map(l => ({ ...l, _computedStatus: computeStatus(l) }));
+  const active = loansWithComputed.filter(l => l._computedStatus === 'active' || l._computedStatus === 'overdue');
+  const history = loansWithComputed.filter(l => l._computedStatus === 'returned' || l._computedStatus === 'cancelled');
+  const overdueCount = loansWithComputed.filter(l => l._computedStatus === 'overdue').length;
 
   function findBook(bookId) {
-    return state.books.find(b => b.id === bookId) || { title: 'Livro', author: 'Desconhecido', cover: COVER_DEFAULT };
+    return state.books.find(b => b.id === bookId) || { title: 'Livro', author: 'Desconhecido', cover: COVER_DEFAULT, paginas: 0 };
+  }
+
+  function dateOrFallback(d) {
+    return d || '-';
   }
 
   return `
@@ -642,7 +736,7 @@ function renderMyLoans() {
       </div>
       <div class="stat-card">
         <div class="stat-icon yellow">${icon('alertCircle')}</div>
-        <div class="stat-value">0</div>
+        <div class="stat-value">${overdueCount}</div>
         <div class="stat-label">Atrasados</div>
       </div>
       <div class="stat-card">
@@ -652,23 +746,26 @@ function renderMyLoans() {
       </div>
     </div>
     <section style="margin-bottom:32px">
-      <div class="section-header"><h2>Emprestimos Ativos</h2></div>
+      <div class="section-header"><h2>Reservas Ativas</h2></div>
       <div style="display:flex;flex-direction:column;gap:12px">
-        ${active.length === 0 ? '<p style="text-align:center;color:var(--slate-400);padding:24px">Nenhum emprestimo ativo</p>' :
+        ${active.length === 0 ? '<p style="text-align:center;color:var(--slate-400);padding:24px">Nenhuma reserva ativa</p>' :
           active.map(l => {
             const book = findBook(l.bookId);
+            const isOverdue = l._computedStatus === 'overdue';
             return `
-              <div class="loan-card">
+              <div class="loan-card ${isOverdue ? 'overdue' : ''}">
                 <div class="loan-cover"><img src="${book.cover}" alt="${book.title}" /></div>
                 <div class="loan-info">
-                  ${statusBadge(l.status)}
+                  ${statusBadge(l._computedStatus)}
+                  ${daysInfo(l)}
                   <h3 style="font-size:14px;font-weight:600;color:var(--slate-800);margin-top:4px">${book.title}</h3>
                   <p style="font-size:12px;color:var(--slate-500)">${book.author}</p>
                   <div class="loan-dates">
-                    <span>Retirada: ${l.borrowDate}</span>
+                    ${l.dataEmprestimo ? `<span>Retirada: ${l.dataEmprestimo}</span>` : l.borrowDate && l.borrowDate !== '-' ? `<span>Retirada: ${l.borrowDate}</span>` : ''}
+                    ${l.dataPrevista ? `<span class="${isOverdue ? 'overdue-date' : ''}">Previsto: ${l.dataPrevista}</span>` : ''}
                   </div>
                 </div>
-                <button class="btn btn-sm btn-danger" data-cancel-reservation="${l.id}">${icon('x')} Cancelar</button>
+                ${l._computedStatus === 'overdue' || l._computedStatus === 'active' ? `<button class="btn btn-sm btn-success" data-return-reservation="${l.id}">${icon('check')} Devolver</button>` : ''}
               </div>
             `;
           }).join('')
@@ -685,9 +782,10 @@ function renderMyLoans() {
               <div class="loan-card" style="opacity:0.6">
                 <div class="loan-cover"><img src="${book.cover}" alt="${book.title}" style="filter:grayscale(1)" /></div>
                 <div class="loan-info">
-                  ${statusBadge(l.status)}
+                  ${statusBadge(l._computedStatus)}
                   <h3 style="font-size:14px;font-weight:600;color:var(--slate-700);margin-top:4px">${book.title}</h3>
                   <p style="font-size:12px;color:var(--slate-400)">${l.borrowDate}</p>
+                  ${l.dataDevolucao ? `<p style="font-size:12px;color:var(--slate-400)">Devolvido: ${l.dataDevolucao}</p>` : ''}
                 </div>
               </div>
             `;
@@ -699,16 +797,18 @@ function renderMyLoans() {
 }
 
 function bindMyLoans() {
-  document.querySelectorAll('[data-cancel-reservation]').forEach(btn => {
+  document.querySelectorAll('[data-return-reservation]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Cancelar esta reserva?')) return;
+      if (!confirm('Devolver esta reserva?')) return;
       try {
-        await updateReservation(parseInt(btn.dataset.cancelReservation), 'CANCELADA');
-        showToast('Reserva cancelada!');
+        const id = parseInt(btn.dataset.returnReservation, 10);
+        if (Number.isNaN(id)) { showError('Erro interno'); return; }
+        await updateReservation(id, 'DEVOLVIDO');
+        showToast('Reserva devolvida!');
         await loadData();
         renderContent();
       } catch (e) {
-        alert(e.message);
+        showError(e.message);
       }
     });
   });
@@ -718,6 +818,10 @@ function bindMyLoans() {
 
 function renderProfile() {
   const u = state.user;
+  const myLoans = state.loans.filter(l => l.userId === u?.id);
+  const activeCount = myLoans.filter(l => computeStatus(l) === 'active').length;
+  const overdueCount = myLoans.filter(l => computeStatus(l) === 'overdue').length;
+
   return `
     <div style="max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
       <div class="profile-hero">
@@ -731,17 +835,17 @@ function renderProfile() {
       <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="stat-card">
           <div class="stat-icon blue">${icon('bookCopy')}</div>
-          <div class="stat-value">${state.loans.filter(l => l.userId === u?.id && l.status === 'active').length}</div>
+          <div class="stat-value">${activeCount + overdueCount}</div>
           <div class="stat-label">Emprestados</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon purple">${icon('clipboard')}</div>
-          <div class="stat-value">${state.loans.filter(l => l.userId === u?.id).length}</div>
+          <div class="stat-value">${myLoans.length}</div>
           <div class="stat-label">Historico</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon yellow">${icon('alertCircle')}</div>
-          <div class="stat-value">0</div>
+          <div class="stat-value">${overdueCount}</div>
           <div class="stat-label">Atrasados</div>
         </div>
       </div>
@@ -757,7 +861,8 @@ function renderProfile() {
 }
 
 function bindProfile() {
-  document.getElementById('btn-profile-logout')?.addEventListener('click', handleLogout);
+  const btn = document.getElementById('btn-profile-logout');
+  if (btn) btn.addEventListener('click', handleLogout);
 }
 
 // ─── Admin Dashboard ──────────────────────────────────────────────
@@ -765,6 +870,14 @@ function bindProfile() {
 function renderAdminDashboard() {
   const books = state.books;
   const loans = state.loans;
+  const activeLoans = loans.filter(l => computeStatus(l) === 'active');
+  const overdueLoans = loans.filter(l => computeStatus(l) === 'overdue');
+  const recentLoans = [...loans].sort((a, b) => {
+    const da = a.dataEmprestimo || a.borrowDate || '';
+    const db = b.dataEmprestimo || b.borrowDate || '';
+    return db.localeCompare(da);
+  }).slice(0, 4);
+
   return `
     <div class="admin-hero">
       <h2>Painel Administrativo</h2>
@@ -778,29 +891,31 @@ function renderAdminDashboard() {
       <div class="stat-card"><div class="stat-icon blue">${icon('book')}</div><div class="stat-value">${books.length}</div><div class="stat-label">Total de Livros</div></div>
       <div class="stat-card"><div class="stat-icon yellow">${icon('bookCopy')}</div><div class="stat-value">${books.filter(b => b.available === 0).length}</div><div class="stat-label">Livros Emprestados</div></div>
       <div class="stat-card"><div class="stat-icon green">${icon('users')}</div><div class="stat-value">${state.users.length}</div><div class="stat-label">Usuarios Cadastrados</div></div>
-      <div class="stat-card"><div class="stat-icon purple">${icon('trending')}</div><div class="stat-value">${loans.filter(l => l.status === 'active').length}</div><div class="stat-label">Emprestimos Ativos</div></div>
+      <div class="stat-card"><div class="stat-icon purple">${icon('trending')}</div><div class="stat-value">${activeLoans.length}</div><div class="stat-label">Reservas Ativas</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div class="card recent-loans-card" style="padding:20px">
         <div class="card-header">
-          <h3>Emprestimos Recentes</h3>
+          <h3>Reservas Recentes</h3>
           <a href="#" data-nav="admin-loans" style="cursor:pointer">Ver todos</a>
         </div>
         <div>
-          ${loans.slice(0, 4).map(l => {
+          ${recentLoans.map(l => {
+            const computed = computeStatus(l);
             const book = state.books.find(b => b.id === l.bookId) || { title: 'Livro', author: '?' };
             const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuario' };
+            const dateLabel = l.dataEmprestimo || l.borrowDate || '-';
             return `
               <div class="recent-item">
                 <div class="recent-avatar">${user.nome[0]}</div>
                 <div class="recent-info">
                   <div class="name">${user.nome}</div>
-                  <div class="detail">${book.title} - ${l.borrowDate}</div>
+                  <div class="detail">${book.title} - ${dateLabel}</div>
                 </div>
-                <span class="badge ${l.status === 'active' ? 'badge-green' : 'badge-red'}">${l.status === 'active' ? 'Ativo' : 'Atrasado'}</span>
+                <span class="badge ${computed === 'active' ? 'badge-blue' : 'badge-red'}">${computed === 'active' ? 'Ativo' : 'Atrasado'}</span>
               </div>
             `;
-          }).join('') || '<p style="text-align:center;color:var(--slate-400);padding:16px">Nenhum emprestimo</p>'}
+          }).join('') || '<p style="text-align:center;color:var(--slate-400);padding:16px">Nenhuma reserva</p>'}
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:12px">
@@ -809,15 +924,15 @@ function renderAdminDashboard() {
           <div class="quick-actions">
             <button class="btn btn-primary btn-sm" data-nav="admin-books" style="justify-content:flex-start">${icon('plus')} Cadastrar Livro</button>
             <button class="btn btn-secondary btn-sm" data-nav="admin-users" style="justify-content:flex-start">${icon('users')} Ver Usuarios</button>
-            <button class="btn btn-secondary btn-sm" data-nav="admin-loans" style="justify-content:flex-start">${icon('clipboard')} Emprestimos</button>
+            <button class="btn btn-secondary btn-sm" data-nav="admin-loans" style="justify-content:flex-start">${icon('clipboard')} Reservas</button>
             <button class="btn btn-secondary btn-sm" data-nav="admin-dashboard" style="justify-content:flex-start">${icon('trending')} Relatorios</button>
           </div>
         </div>
         <div class="alert-card">
           <div class="alert-icon">${icon('alertCircle')}</div>
           <div>
-            <div class="alert-title">${loans.filter(l => l.status === 'overdue').length || 0} emprestimos em atraso</div>
-            <div class="alert-desc">Usuarios precisam ser notificados sobre devolucao.</div>
+            <div class="alert-title">${overdueLoans.length || 0} reservas em atraso</div>
+            <div class="alert-desc">Devolucao automatica disponivel na tela de reservas.</div>
             <a href="#" class="alert-link" data-nav="admin-loans">Ver detalhes</a>
           </div>
         </div>
@@ -846,6 +961,7 @@ function renderAdminBookRow(b) {
         </div>
       </td>
       <td style="color:var(--slate-500)">${b.author}</td>
+      <td style="color:var(--slate-500)">${b.paginas || '-'}</td>
       <td>${b.available}/${b.total}</td>
       <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponivel' : 'Esgotado'}</span></td>
       <td>
@@ -866,6 +982,7 @@ function renderBookForm(book) {
       <div class="form-grid">
         <div class="input-group"><label>Titulo</label><div class="input-wrapper"><input type="text" id="form-title" placeholder="Titulo do livro" value="${book?.title || ''}" /></div></div>
         <div class="input-group"><label>Autor</label><div class="input-wrapper"><input type="text" id="form-author" placeholder="Nome do autor" value="${book?.author || ''}" /></div></div>
+        <div class="input-group"><label>Paginas</label><div class="input-wrapper"><input type="number" id="form-paginas" placeholder="Quantidade de paginas" value="${book?.paginas || ''}" min="0" /></div></div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:var(--slate-600)">
         <input type="checkbox" id="form-available" ${!book || book.available > 0 ? 'checked' : ''} />
@@ -901,6 +1018,7 @@ function renderAdminBooks() {
             <tr>
               <th>Livro</th>
               <th>Autor</th>
+              <th>Paginas</th>
               <th>Disponiveis</th>
               <th>Status</th>
               <th>Acoes</th>
@@ -918,56 +1036,74 @@ function renderAdminBooks() {
 function bindAdminBooks() {
   const openBookForm = (book = null) => {
     const c = document.getElementById('book-form-container');
+    if (!c) return;
     c.innerHTML = renderBookForm(book);
 
-    document.getElementById('btn-cancel-book').onclick = () => { c.innerHTML = ''; };
-    document.getElementById('btn-save-book').onclick = async () => {
-      const titulo = document.getElementById('form-title').value.trim();
-      const autor = document.getElementById('form-author').value.trim();
-      const disponivel = document.getElementById('form-available').checked;
-      if (!titulo || !autor) { alert('Preencha titulo e autor'); return; }
+    const btnCancel = document.getElementById('btn-cancel-book');
+    if (btnCancel) btnCancel.onclick = () => { c.innerHTML = ''; };
+    const btnSave = document.getElementById('btn-save-book');
+    if (btnSave) btnSave.onclick = async () => {
+      const titulo = document.getElementById('form-title');
+      const autor = document.getElementById('form-author');
+      const paginas = document.getElementById('form-paginas');
+      if (!titulo || !autor || !paginas) return;
+      const t = titulo.value.trim();
+      const a = autor.value.trim();
+      const p = parseInt(paginas.value, 10) || 0;
+      const disp = document.getElementById('form-available')?.checked ?? true;
+      if (!t || !a) { showError('Preencha titulo e autor'); return; }
       try {
         if (book) {
-          await updateBook(book.id, { titulo, autor, disponivel });
+          await updateBook(book.id, { titulo: t, autor: a, paginas: p, disponivel: disp });
           showToast('Livro atualizado!');
         } else {
-          await createBook({ titulo, autor, disponivel });
+          await createBook({ titulo: t, autor: a, paginas: p, disponivel: disp });
           showToast('Livro cadastrado com sucesso!');
         }
         await loadData();
         renderContent();
-      } catch (e) { alert(e.message); }
+      } catch (e) { showError(e.message); }
     };
   };
 
-  document.getElementById('btn-new-book')?.addEventListener('click', () => openBookForm());
+  const btnNewBook = document.getElementById('btn-new-book');
+  if (btnNewBook) btnNewBook.addEventListener('click', () => openBookForm());
 
-  document.getElementById('admin-search')?.addEventListener('input', e => {
+  const searchInput = document.getElementById('admin-search');
+  if (searchInput) searchInput.addEventListener('input', e => {
     const q = e.target.value.toLowerCase();
     const tbody = document.getElementById('books-tbody');
+    if (!tbody) return;
     const filtered = state.books.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
     tbody.innerHTML = filtered.map(renderAdminBookRow).join('');
-    document.getElementById('book-count').textContent = `(${filtered.length})`;
+    const count = document.getElementById('book-count');
+    if (count) count.textContent = `(${filtered.length})`;
   });
 
-  document.getElementById('books-tbody')?.addEventListener('click', async e => {
+  const tbody = document.getElementById('books-tbody');
+  if (tbody) tbody.addEventListener('click', async e => {
     const editBtn = e.target.closest('[data-edit-book]');
     const deleteBtn = e.target.closest('[data-delete]');
 
     if (editBtn) {
-      const book = state.books.find(b => b.id === parseInt(editBtn.dataset.editBook));
-      if (book) openBookForm(book);
+      const id = parseInt(editBtn.dataset.editBook, 10);
+      if (!Number.isNaN(id)) {
+        const book = state.books.find(b => b.id === id);
+        if (book) openBookForm(book);
+      }
       return;
     }
 
     if (!deleteBtn) return;
     if (!confirm('Excluir este livro e suas reservas?')) return;
     try {
-      await deleteBook(parseInt(deleteBtn.dataset.delete));
+      const id = parseInt(deleteBtn.dataset.delete, 10);
+      if (Number.isNaN(id)) { showError('Erro interno'); return; }
+      await deleteBook(id);
       showToast('Livro excluido!');
       await loadData();
       renderContent();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showError(err.message); }
   });
 }
 
@@ -1012,13 +1148,13 @@ function renderUserForm(user) {
 }
 
 function renderAdminUsers() {
-  const activeUserIds = new Set(state.loans.filter(l => l.status === 'active' || l.status === 'overdue').map(l => l.userId));
+  const activeUserIds = new Set(state.loans.filter(l => computeStatus(l) === 'active' || computeStatus(l) === 'overdue').map(l => l.userId));
 
   return `
     <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
       <div class="stat-card"><div class="stat-icon blue">${icon('users')}</div><div class="stat-value">${state.users.length}</div><div class="stat-label">Total</div></div>
-      <div class="stat-card"><div class="stat-icon yellow">${icon('bookCopy')}</div><div class="stat-value">${activeUserIds.size}</div><div class="stat-label">Com emprestimos</div></div>
-      <div class="stat-card"><div class="stat-icon green">${icon('alertCircle')}</div><div class="stat-value">${state.loans.filter(l => l.status === 'overdue').length}</div><div class="stat-label">Em atraso</div></div>
+      <div class="stat-card"><div class="stat-icon yellow">${icon('bookCopy')}</div><div class="stat-value">${activeUserIds.size}</div><div class="stat-label">Com reservas</div></div>
+      <div class="stat-card"><div class="stat-icon green">${icon('alertCircle')}</div><div class="stat-value">${state.loans.filter(l => computeStatus(l) === 'overdue').length}</div><div class="stat-label">Em atraso</div></div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <button class="btn btn-primary" id="btn-new-user">${icon('plus')} Novo Usuario</button>
@@ -1044,21 +1180,28 @@ function renderAdminUsers() {
 function bindAdminUsers() {
   const openUserForm = (user = null) => {
     const c = document.getElementById('user-form-container');
+    if (!c) return;
     c.innerHTML = renderUserForm(user);
 
-    document.getElementById('btn-cancel-user').onclick = () => { c.innerHTML = ''; };
-    document.getElementById('btn-save-user').onclick = async () => {
-      const nome = document.getElementById('user-name').value.trim();
-      const email = document.getElementById('user-email').value.trim();
-      const senha = document.getElementById('user-pass').value;
-
-      if (!nome || !email) { alert('Preencha nome e e-mail'); return; }
-      if (!user && !senha) { alert('Informe uma senha'); return; }
-      if (senha && senha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres'); return; }
+    const btnCancel = document.getElementById('btn-cancel-user');
+    if (btnCancel) btnCancel.onclick = () => { c.innerHTML = ''; };
+    const btnSave = document.getElementById('btn-save-user');
+    if (btnSave) btnSave.onclick = async () => {
+      const nome = document.getElementById('user-name');
+      const email = document.getElementById('user-email');
+      const senha = document.getElementById('user-pass');
+      if (!nome || !email) return;
+      const n = nome.value.trim();
+      const e = email.value.trim();
+      const s = senha ? senha.value : '';
+      if (!n || !e) { showError('Preencha nome e e-mail'); return; }
+      if (!user && !s) { showError('Informe uma senha'); return; }
+      if (s && s.length < 6) { showError('A senha deve ter pelo menos 6 caracteres'); return; }
+      if (!e.includes('@')) { showError('Digite um e-mail valido'); return; }
 
       try {
-        const payload = { nome, email };
-        if (senha) payload.senha = senha;
+        const payload = { nome: n, email: e };
+        if (s) payload.senha = s;
 
         if (user) {
           await updateUser(user.id_usuario, payload);
@@ -1070,72 +1213,85 @@ function bindAdminUsers() {
 
         await loadData();
         renderContent();
-      } catch (e) { alert(e.message); }
+      } catch (err) { showError(err.message); }
     };
   };
 
-  document.getElementById('btn-new-user')?.addEventListener('click', () => openUserForm());
+  const btnNewUser = document.getElementById('btn-new-user');
+  if (btnNewUser) btnNewUser.addEventListener('click', () => openUserForm());
 
-  document.getElementById('users-tbody')?.addEventListener('click', async e => {
+  const tbody = document.getElementById('users-tbody');
+  if (tbody) tbody.addEventListener('click', async e => {
     const editBtn = e.target.closest('[data-edit-user]');
     const deleteBtn = e.target.closest('[data-delete-user]');
 
     if (editBtn) {
-      const user = state.users.find(u => u.id_usuario === parseInt(editBtn.dataset.editUser));
-      if (user) openUserForm(user);
+      const id = parseInt(editBtn.dataset.editUser, 10);
+      if (!Number.isNaN(id)) {
+        const user = state.users.find(u => u.id_usuario === id);
+        if (user) openUserForm(user);
+      }
       return;
     }
 
     if (!deleteBtn) return;
     if (!confirm('Excluir este usuario e suas reservas?')) return;
     try {
-      await deleteUser(parseInt(deleteBtn.dataset.deleteUser));
+      const id = parseInt(deleteBtn.dataset.deleteUser, 10);
+      if (Number.isNaN(id)) { showError('Erro interno'); return; }
+      await deleteUser(id);
       showToast('Usuario excluido!');
       await loadData();
       renderContent();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showError(err.message); }
   });
 }
 
 // ─── Admin Loans ──────────────────────────────────────────────────
 
 function renderAdminLoans() {
-  const loans = state.loans;
+  const loans = state.loans.map(l => ({ ...l, _computedStatus: computeStatus(l) }));
+  const activeLoans = loans.filter(l => l._computedStatus === 'active');
+  const overdueLoans = loans.filter(l => l._computedStatus === 'overdue');
+
   return `
     <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
-      <div class="stat-card"><div class="stat-icon blue">${icon('bookCopy')}</div><div class="stat-value">${loans.filter(l => l.status === 'active').length}</div><div class="stat-label">Ativos</div></div>
-      <div class="stat-card"><div class="stat-icon yellow">${icon('alertCircle')}</div><div class="stat-value">${loans.filter(l => l.status === 'overdue').length}</div><div class="stat-label">Em atraso</div></div>
+      <div class="stat-card"><div class="stat-icon blue">${icon('bookCopy')}</div><div class="stat-value">${activeLoans.length}</div><div class="stat-label">Ativos</div></div>
+      <div class="stat-card"><div class="stat-icon yellow">${icon('alertCircle')}</div><div class="stat-value">${overdueLoans.length}</div><div class="stat-label">Em atraso</div></div>
       <div class="stat-card"><div class="stat-icon green">${icon('trending')}</div><div class="stat-value">${loans.length}</div><div class="stat-label">Total</div></div>
     </div>
     <div class="card" style="overflow:hidden">
       <div style="padding:16px 20px;border-bottom:1px solid var(--slate-50);display:flex;justify-content:space-between;align-items:center">
-        <h3 style="font-size:16px;font-weight:600">Todos os Emprestimos</h3>
+        <h3 style="font-size:16px;font-weight:600">Todas as Reservas</h3>
       </div>
       <div class="table-container">
         <table>
-          <thead><tr><th>Livro</th><th>Usuario</th><th>Data</th><th>Status</th><th>Acoes</th></tr></thead>
+          <thead><tr><th>Livro</th><th>Usuario</th><th>Emprestimo</th><th>Previsto</th><th>Devolucao</th><th>Status</th><th>Acoes</th></tr></thead>
           <tbody id="loans-tbody">
             ${loans.map(l => {
               const book = state.books.find(b => b.id === l.bookId) || { title: 'Livro', author: '?' };
               const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuario' };
+              const isOverdue = l._computedStatus === 'overdue';
+              const canReturn = l._computedStatus === 'active' || l._computedStatus === 'overdue';
               return `
                 <tr>
                   <td><span style="font-size:14px;font-weight:500;color:var(--slate-700)">${book.title}</span> <span style="font-size:12px;color:var(--slate-400);margin-left:6px">${book.author}</span></td>
                   <td style="color:var(--slate-500)">${user.nome}</td>
-                  <td style="color:var(--slate-500)">${l.borrowDate}</td>
-                  <td>${statusBadge(l.status)}</td>
+                  <td style="color:var(--slate-500)">${l.dataEmprestimo || l.borrowDate || '-'}</td>
+                  <td style="color:${isOverdue ? 'var(--red-600)' : 'var(--slate-500)'};font-weight:${isOverdue ? '500' : 'normal'}">${l.dataPrevista || '-'}</td>
+                  <td style="color:var(--slate-500)">${l.dataDevolucao || '-'}</td>
+                  <td>${statusBadge(l._computedStatus)}</td>
                   <td>
                     <div style="display:flex;gap:8px;flex-wrap:wrap">
-                      ${l.status === 'active' ? `<button class="btn btn-sm btn-secondary" data-delay-loan="${l.id}">${icon('clock')} Atrasar</button>` : ''}
-                      ${l.status === 'active' || l.status === 'overdue' ? `<button class="btn btn-sm btn-secondary" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
-                      ${l.status === 'active' || l.status === 'overdue' ? `<button class="btn btn-sm btn-danger" data-cancel-loan="${l.id}">${icon('x')} Cancelar</button>` : ''}
+                      ${canReturn ? `<button class="btn btn-sm btn-success" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
+                      ${l._computedStatus === 'active' || l._computedStatus === 'overdue' ? `<button class="btn btn-sm btn-warning" data-cancel-loan="${l.id}">${icon('x')} Cancelar</button>` : ''}
                       <button class="btn btn-sm btn-danger" data-delete-loan="${l.id}">${icon('trash')}</button>
                     </div>
                   </td>
                 </tr>
               `;
             }).join('')}
-            ${loans.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:var(--slate-400);padding:32px">Nenhum emprestimo encontrado</td></tr>' : ''}
+            ${loans.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--slate-400);padding:32px">Nenhuma reserva encontrada</td></tr>' : ''}
           </tbody>
         </table>
       </div>
@@ -1144,26 +1300,30 @@ function renderAdminLoans() {
 }
 
 function bindAdminLoans() {
-  document.getElementById('loans-tbody')?.addEventListener('click', async e => {
-    const delayBtn = e.target.closest('[data-delay-loan]');
+  const tbody = document.getElementById('loans-tbody');
+  if (!tbody) return;
+  tbody.addEventListener('click', async e => {
     const returnBtn = e.target.closest('[data-devolve]');
     const cancelBtn = e.target.closest('[data-cancel-loan]');
     const deleteBtn = e.target.closest('[data-delete-loan]');
 
     try {
-      if (delayBtn) {
-        await updateReservation(parseInt(delayBtn.dataset.delayLoan), 'ATRASADA');
-        showToast('Emprestimo marcado como atrasado!');
-      } else if (returnBtn) {
-        await updateReservation(parseInt(returnBtn.dataset.devolve), 'DEVOLVIDO');
+      if (returnBtn) {
+        const id = parseInt(returnBtn.dataset.devolve, 10);
+        if (Number.isNaN(id)) { showError('Erro interno'); return; }
+        await updateReservation(id, 'DEVOLVIDO');
         showToast('Devolucao registrada!');
       } else if (cancelBtn) {
         if (!confirm('Cancelar esta reserva?')) return;
-        await updateReservation(parseInt(cancelBtn.dataset.cancelLoan), 'CANCELADA');
+        const id = parseInt(cancelBtn.dataset.cancelLoan, 10);
+        if (Number.isNaN(id)) { showError('Erro interno'); return; }
+        await updateReservation(id, 'CANCELADA');
         showToast('Reserva cancelada!');
       } else if (deleteBtn) {
         if (!confirm('Excluir este registro de reserva?')) return;
-        await deleteReservation(parseInt(deleteBtn.dataset.deleteLoan));
+        const id = parseInt(deleteBtn.dataset.deleteLoan, 10);
+        if (Number.isNaN(id)) { showError('Erro interno'); return; }
+        await deleteReservation(id);
         showToast('Reserva excluida!');
       } else {
         return;
@@ -1172,7 +1332,7 @@ function bindAdminLoans() {
       await loadData();
       renderContent();
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
     }
   });
 }

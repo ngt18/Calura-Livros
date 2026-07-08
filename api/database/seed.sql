@@ -1,0 +1,83 @@
+USE biblioteca;
+
+-- ============================================================
+-- LIVROS REAIS COM IMAGENS REAIS (Unsplash)
+-- ============================================================
+
+INSERT INTO livros (titulo, autor, paginas, disponivel) VALUES
+('Dom Casmurro', 'Machado de Assis', 256, TRUE),
+('Grande Sertao: Veredas', 'Guimaraes Rosa', 608, TRUE),
+('O Alienista', 'Machado de Assis', 112, TRUE),
+('Capitães da Areia', 'Jorge Amado', 320, TRUE),
+('Vidas Secas', 'Graciliano Ramos', 184, TRUE),
+('O Cortico', 'Aluisio Azevedo', 304, TRUE),
+('Memorias Postumas de Bras Cubas', 'Machado de Assis', 240, TRUE),
+('Macunaima', 'Mario de Andrade', 192, TRUE),
+('A Moreninha', 'Joaquim Manuel de Macedo', 280, TRUE),
+('Iracema', 'Jose de Alencar', 176, TRUE),
+('O Guarani', 'Jose de Alencar', 416, TRUE),
+('Senhora', 'Jose de Alencar', 272, TRUE),
+('O Primo Basilio', 'Eca de Queiros', 448, TRUE),
+('Os Maias', 'Eca de Queiros', 720, TRUE),
+('Memorias de um Sargento de Milicias', 'Manuel Antonio de Almeida', 336, TRUE),
+('A Escrava Isaura', 'Bernardo Guimaraes', 224, TRUE),
+('Triste Fim de Policarpo Quaresma', 'Lima Barreto', 368, TRUE),
+('O Ateneu', 'Raul Pompeia', 312, TRUE),
+('1984', 'George Orwell', 328, TRUE),
+('O Senhor dos Aneis: A Sociedade do Anel', 'J.R.R. Tolkien', 576, TRUE),
+('O Senhor dos Aneis: As Duas Torres', 'J.R.R. Tolkien', 496, TRUE),
+('O Senhor dos Aneis: O Retorno do Rei', 'J.R.R. Tolkien', 560, TRUE),
+('O Hobbit', 'J.R.R. Tolkien', 336, TRUE),
+('Harry Potter e a Pedra Filosofal', 'J.K. Rowling', 264, TRUE),
+('Harry Potter e a Camara Secreta', 'J.K. Rowling', 288, TRUE),
+('Harry Potter e o Prisioneiro de Azkaban', 'J.K. Rowling', 360, TRUE),
+('Harry Potter e o Calcice de Fogo', 'J.K. Rowling', 480, TRUE),
+('Harry Potter e a Ordem da Fenix', 'J.K. Rowling', 720, TRUE),
+('O Pequeno Principe', 'Antoine de Saint-Exupery', 96, TRUE),
+('Orgulho e Preconceito', 'Jane Austen', 416, TRUE),
+('Dom Quixote', 'Miguel de Cervantes', 992, TRUE),
+('Cem Anos de Solidao', 'Gabriel Garcia Marquez', 432, TRUE),
+('O Nome da Rosa', 'Umberto Eco', 552, TRUE),
+('A Revolucao dos Bichos', 'George Orwell', 152, TRUE),
+('O Apanhador no Campo de Centeio', 'J.D. Salinger', 240, TRUE),
+('Lolita', 'Vladimir Nabokov', 368, TRUE),
+('Crime e Castigo', 'Fiodor Dostoievski', 672, TRUE),
+('Guerra e Paz', 'Leon Tolstoi', 1440, TRUE),
+('Anne da Ilha', 'Lucy Maud Montgomery', 288, TRUE),
+('A Menina que Roubava Livros', 'Markus Zusak', 480, TRUE),
+('O Sol e para Todos', 'Harper Lee', 288, TRUE),
+('Moby Dick', 'Herman Melville', 720, TRUE),
+('Dracula', 'Bram Stoker', 432, TRUE),
+('Frankenstein', 'Mary Shelley', 304, TRUE),
+('A Metamorfose', 'Franz Kafka', 96, TRUE),
+('O Processo', 'Franz Kafka', 288, TRUE),
+('O Estrangeiro', 'Albert Camus', 160, TRUE),
+('A Peste', 'Albert Camus', 352, TRUE),
+('Admiravel Mundo Novo', 'Aldous Huxley', 352, TRUE),
+('Farenheit 451', 'Ray Bradbury', 216, TRUE),
+('O Conto da Aia', 'Margaret Atwood', 336, TRUE),
+('O Codigo da Vinci', 'Dan Brown', 432, TRUE),
+('Anjos e Demonios', 'Dan Brown', 480, TRUE),
+('Inferno', 'Dan Brown', 480, TRUE),
+('O Capitao de Longes Caminhos', 'Jorge Amado', 288, TRUE),
+('Dona Flor e Seus Dois Maridos', 'Jorge Amado', 544, TRUE),
+('Tieta do Agreste', 'Jorge Amado',  672, TRUE),
+('Gabriela, Cravo e Canela', 'Jorge Amado', 448, TRUE),
+('A Hora da Estrela', 'Clarice Lispector', 96, TRUE),
+('Perto do Coracao Selvagem', 'Clarice Lispector', 224, TRUE);
+-- ============================================================
+-- USUARIOS DE EXEMPLO (senha padrao: 123456)
+-- ============================================================
+
+-- As senhas serao populadas automaticamente pelo backend na primeira execucao
+INSERT INTO usuarios (nome, email, senha_hash, senha_salt) VALUES
+('Ana Silva', 'ana@email.com', '', ''),
+('Carlos Oliveira', 'carlos@email.com', '', ''),
+('Mariana Santos', 'mariana@email.com', '', ''),
+('Pedro Costa', 'pedro@email.com', '', ''),
+('Julieta Mendes', 'julieta@email.com', '', ''),
+('Rafael Souza', 'rafael@email.com', '', ''),
+('Luiza Alves', 'luiza@email.com', '', ''),
+('Felipe Rocha', 'felipe@email.com', '', ''),
+('Beatriz Campos', 'beatriz@email.com', '', ''),
+('Lucas Barbosa', 'lucas@email.com', '', '');
