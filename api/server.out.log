@@ -1,0 +1,3 @@
+◇ injected env (6) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Server is running on port http://localhost:3031
+Database successfully connected

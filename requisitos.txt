@@ -1,0 +1,45 @@
+Requisitos Funcionais
+
+RF01 — Cadastrar usuários
+O sistema deverá permitir cadastrar usuários com nome e e-mail.
+
+RF02 — Realizar login
+O sistema deverá permitir que o usuário entre utilizando e-mail e senha.
+
+RF03 — Consultar livros
+O sistema deverá exibir os livros cadastrados e informar se estão disponíveis.
+
+RF04 — Cadastrar livros
+O sistema deverá permitir que o responsável pela biblioteca cadastre novos livros.
+
+RF05 — Reservar livro
+O sistema deverá permitir que um usuário reserve um livro disponível.
+
+RF06 — Consultar reservas
+O sistema deverá permitir que o usuário visualize suas reservas.
+
+RF07 — Cancelar reserva
+O sistema deverá permitir que o usuário cancele uma reserva.
+
+RF08 — Editar e excluir registros
+O sistema deverá permitir editar ou excluir usuários, livros e reservas.
+
+Requisitos Não Funcionais
+
+RNF01 — Interface simples
+O sistema deverá possuir uma interface fácil de entender e utilizar.
+
+RNF02 — Responsividade
+O sistema deverá funcionar em computadores e celulares.
+
+RNF03 — Segurança
+As senhas dos usuários deverão ser armazenadas de forma segura.
+
+RNF04 — Compatibilidade
+O sistema deverá funcionar nos navegadores atuais, como Chrome, Edge e Firefox.
+
+RNF05 — Desempenho
+As páginas e consultas deverão carregar em poucos segundos.
+
+RNF06 — Disponibilidade
+O sistema deverá estar disponível durante o horário de funcionamento da biblioteca.

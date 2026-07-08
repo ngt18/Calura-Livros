@@ -1,5 +1,17 @@
 const CATEGORIES = ['Todos', 'Fantasia', 'Literatura Brasileira', 'Tecnologia', 'Historia', 'Ficcao Cientifica', 'Infanto-Juvenil', 'Autoajuda'];
 const COVER_DEFAULT = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=420&fit=crop&auto=format';
+const STATUS_MAP = {
+  ATIVA: 'active',
+  ATRASADA: 'overdue',
+  DEVOLVIDO: 'returned',
+  CANCELADA: 'cancelled',
+};
+const STATUS_LABELS = {
+  active: 'Ativo',
+  overdue: 'Atrasado',
+  returned: 'Devolvido',
+  cancelled: 'Cancelado',
+};
 
 const state = {
   screen: 'login',
@@ -32,6 +44,23 @@ function showToast(msg) {
   `;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 4000);
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  return String(value).split('T')[0];
+}
+
+function statusBadge(status) {
+  const className = status === 'active'
+    ? 'badge-green'
+    : status === 'overdue'
+      ? 'badge-red'
+      : status === 'cancelled'
+        ? 'badge-yellow'
+        : 'badge-slate';
+
+  return `<span class="badge ${className}">${STATUS_LABELS[status] || status}</span>`;
 }
 
 function icon(name) {
@@ -72,19 +101,20 @@ function mapBook(b) {
     id: b.id_livro,
     title: b.titulo || 'Sem titulo',
     author: b.autor || 'Desconhecido',
-    available: b.disponivel ? 1 : 0,
+    available: Number(b.disponivel) ? 1 : 0,
     total: 1,
     cover: COVER_DEFAULT,
   };
 }
 
 function mapReservation(r) {
+  const rawStatus = String(r.status || 'ATIVA').toUpperCase();
   return {
     id: r.id_reserva,
     bookId: r.id_livro,
     userId: r.id_usuario,
-    borrowDate: r.data_reserva,
-    status: r.status === 'ATIVA' ? 'active' : r.status === 'DEVOLVIDO' ? 'returned' : 'overdue',
+    borrowDate: formatDate(r.data_reserva),
+    status: STATUS_MAP[rawStatus] || 'overdue',
   };
 }
 
@@ -103,9 +133,9 @@ async function loadData() {
   }
 }
 
-async function handleLogin(email) {
+async function handleLogin(email, senha) {
   try {
-    const user = await loginUser(email);
+    const user = await loginUser(email, senha);
     state.user = { id: user.id_usuario, nome: user.nome, email: user.email };
     state.isAdmin = false;
     await loadData();
@@ -169,14 +199,14 @@ function renderLogin() {
               <label>E-mail</label>
               <div class="input-wrapper">
                 <span class="input-icon">${icon('user')}</span>
-                <input type="email" id="login-email" class="has-icon" placeholder="seu@email.com" value="ana.silva@uni.edu.br" />
+                <input type="email" id="login-email" class="has-icon" placeholder="seu@email.com" />
               </div>
             </div>
             <div class="input-group">
               <label>Senha</label>
               <div class="input-wrapper">
                 <span class="input-icon">${icon('book')}</span>
-                <input type="password" id="login-pass" class="has-icon" placeholder="Digite sua senha" value="123456" />
+                <input type="password" id="login-pass" class="has-icon" placeholder="Digite sua senha" />
                 <button id="toggle-pass" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--slate-400);cursor:pointer;">${icon('eyeOff')}</button>
               </div>
             </div>
@@ -200,6 +230,13 @@ function renderLogin() {
               <div class="input-wrapper">
                 <span class="input-icon">${icon('user')}</span>
                 <input type="email" id="reg-email" class="has-icon" placeholder="seu@email.com" />
+              </div>
+            </div>
+            <div class="input-group">
+              <label>Senha</label>
+              <div class="input-wrapper">
+                <span class="input-icon">${icon('book')}</span>
+                <input type="password" id="reg-pass" class="has-icon" placeholder="Minimo de 6 caracteres" />
               </div>
             </div>
             <button class="btn btn-primary btn-lg" id="btn-register" style="width:100%">Criar conta</button>
@@ -239,8 +276,9 @@ function bindLogin() {
 
   document.getElementById('btn-login').onclick = () => {
     const email = document.getElementById('login-email').value.trim();
-    if (!email) { alert('Digite um e-mail'); return; }
-    handleLogin(email);
+    const senha = document.getElementById('login-pass').value;
+    if (!email || !senha) { alert('Digite e-mail e senha'); return; }
+    handleLogin(email, senha);
   };
 
   document.getElementById('btn-admin').onclick = handleAdminLogin;
@@ -248,10 +286,12 @@ function bindLogin() {
   document.getElementById('btn-register').onclick = async () => {
     const nome = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
-    if (!nome || !email) { alert('Preencha todos os campos'); return; }
+    const senha = document.getElementById('reg-pass').value;
+    if (!nome || !email || !senha) { alert('Preencha todos os campos'); return; }
+    if (senha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres'); return; }
     try {
-      const user = await createUser({ nome, email });
-      state.user = { id: user.id, nome: user.nome, email: user.email };
+      const user = await createUser({ nome, email, senha });
+      state.user = { id: user.id_usuario || user.id, nome: user.nome, email: user.email };
       state.isAdmin = false;
       await loadData();
       navigate('dashboard');
@@ -367,7 +407,7 @@ function renderContent() {
     case 'profile': c.innerHTML = renderProfile(); bindProfile(); break;
     case 'admin-dashboard': c.innerHTML = renderAdminDashboard(); bindAdminDashboard(); break;
     case 'admin-books': c.innerHTML = renderAdminBooks(); bindAdminBooks(); break;
-    case 'admin-users': c.innerHTML = renderAdminUsers(); break;
+    case 'admin-users': c.innerHTML = renderAdminUsers(); bindAdminUsers(); break;
     case 'admin-loans': c.innerHTML = renderAdminLoans(); bindAdminLoans(); break;
   }
 }
@@ -515,7 +555,8 @@ async function handleBorrow(bookId) {
     });
     showToast('Emprestimo solicitado com sucesso!');
     await loadData();
-    if (state.screen === 'dashboard') renderContent();
+    state.selectedBook = state.books.find(b => b.id === bookId) || state.selectedBook;
+    if (state.screen === 'dashboard' || state.screen === 'book-detail') renderContent();
   } catch (e) {
     alert(e.message);
   }
@@ -550,7 +591,7 @@ function renderBookDetail() {
         </div>
         <div class="detail-synopsis">
           <h3>Sinopse</h3>
-          <p>Informacoes sobre este livro em breve disponiveis no sistema.</p>
+          <p>${book.title} esta cadastrado no acervo da biblioteca com autoria de ${book.author}. Use a disponibilidade abaixo para solicitar o emprestimo quando houver exemplar livre.</p>
         </div>
         <div class="avail-bar">
           <div class="avail-header">
@@ -585,8 +626,8 @@ function bindBookDetail() {
 
 function renderMyLoans() {
   const myLoans = state.user ? state.loans.filter(l => l.userId === state.user.id) : [];
-  const active = myLoans.filter(l => l.status !== 'returned');
-  const history = myLoans.filter(l => l.status === 'returned');
+  const active = myLoans.filter(l => l.status === 'active' || l.status === 'overdue');
+  const history = myLoans.filter(l => l.status === 'returned' || l.status === 'cancelled');
 
   function findBook(bookId) {
     return state.books.find(b => b.id === bookId) || { title: 'Livro', author: 'Desconhecido', cover: COVER_DEFAULT };
@@ -620,13 +661,14 @@ function renderMyLoans() {
               <div class="loan-card">
                 <div class="loan-cover"><img src="${book.cover}" alt="${book.title}" /></div>
                 <div class="loan-info">
-                  <span class="badge badge-green">${icon('check')} Ativo</span>
+                  ${statusBadge(l.status)}
                   <h3 style="font-size:14px;font-weight:600;color:var(--slate-800);margin-top:4px">${book.title}</h3>
                   <p style="font-size:12px;color:var(--slate-500)">${book.author}</p>
                   <div class="loan-dates">
                     <span>Retirada: ${l.borrowDate}</span>
                   </div>
                 </div>
+                <button class="btn btn-sm btn-danger" data-cancel-reservation="${l.id}">${icon('x')} Cancelar</button>
               </div>
             `;
           }).join('')
@@ -643,7 +685,7 @@ function renderMyLoans() {
               <div class="loan-card" style="opacity:0.6">
                 <div class="loan-cover"><img src="${book.cover}" alt="${book.title}" style="filter:grayscale(1)" /></div>
                 <div class="loan-info">
-                  <span class="badge badge-slate">Devolvido</span>
+                  ${statusBadge(l.status)}
                   <h3 style="font-size:14px;font-weight:600;color:var(--slate-700);margin-top:4px">${book.title}</h3>
                   <p style="font-size:12px;color:var(--slate-400)">${l.borrowDate}</p>
                 </div>
@@ -656,7 +698,21 @@ function renderMyLoans() {
   `;
 }
 
-function bindMyLoans() {}
+function bindMyLoans() {
+  document.querySelectorAll('[data-cancel-reservation]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Cancelar esta reserva?')) return;
+      try {
+        await updateReservation(parseInt(btn.dataset.cancelReservation), 'CANCELADA');
+        showToast('Reserva cancelada!');
+        await loadData();
+        renderContent();
+      } catch (e) {
+        alert(e.message);
+      }
+    });
+  });
+}
 
 // ─── Profile ──────────────────────────────────────────────────────
 
@@ -778,6 +834,51 @@ function bindAdminDashboard() {
 
 // ─── Admin Books ──────────────────────────────────────────────────
 
+function renderAdminBookRow(b) {
+  return `
+    <tr data-id="${b.id}">
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:44px;border-radius:4px;background:var(--slate-100);overflow:hidden;flex-shrink:0">
+            <img src="${b.cover}" alt="" style="width:100%;height:100%;object-fit:cover" />
+          </div>
+          <span style="font-size:14px;font-weight:500;color:var(--slate-700)">${b.title}</span>
+        </div>
+      </td>
+      <td style="color:var(--slate-500)">${b.author}</td>
+      <td>${b.available}/${b.total}</td>
+      <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponivel' : 'Esgotado'}</span></td>
+      <td>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" data-edit-book="${b.id}">${icon('edit')} Editar</button>
+          <button class="btn btn-sm btn-danger" data-delete="${b.id}">${icon('trash')}</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderBookForm(book) {
+  const isEdit = Boolean(book);
+  return `
+    <div class="form-card">
+      <h3>${isEdit ? 'Editar Livro' : 'Cadastrar Novo Livro'}</h3>
+      <div class="form-grid">
+        <div class="input-group"><label>Titulo</label><div class="input-wrapper"><input type="text" id="form-title" placeholder="Titulo do livro" value="${book?.title || ''}" /></div></div>
+        <div class="input-group"><label>Autor</label><div class="input-wrapper"><input type="text" id="form-author" placeholder="Nome do autor" value="${book?.author || ''}" /></div></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:var(--slate-600)">
+        <input type="checkbox" id="form-available" ${!book || book.available > 0 ? 'checked' : ''} />
+        Livro disponivel
+      </label>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="btn-save-book">${isEdit ? 'Salvar Alteracoes' : 'Salvar Livro'}</button>
+        <button class="btn btn-ghost" id="btn-cancel-book">Cancelar</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderAdminBooks() {
   return `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
@@ -806,24 +907,7 @@ function renderAdminBooks() {
             </tr>
           </thead>
           <tbody id="books-tbody">
-            ${state.books.map(b => `
-              <tr data-id="${b.id}">
-                <td>
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:32px;height:44px;border-radius:4px;background:var(--slate-100);overflow:hidden;flex-shrink:0">
-                      <img src="${b.cover}" alt="" style="width:100%;height:100%;object-fit:cover" />
-                    </div>
-                    <span style="font-size:14px;font-weight:500;color:var(--slate-700)">${b.title}</span>
-                  </div>
-                </td>
-                <td style="color:var(--slate-500)">${b.author}</td>
-                <td>${b.available}/${b.total}</td>
-                <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponivel' : 'Esgotado'}</span></td>
-                <td>
-                  <button class="btn btn-sm btn-danger" data-delete="${b.id}">${icon('trash')}</button>
-                </td>
-              </tr>
-            `).join('')}
+            ${state.books.map(renderAdminBookRow).join('')}
           </tbody>
         </table>
       </div>
@@ -832,65 +916,54 @@ function renderAdminBooks() {
 }
 
 function bindAdminBooks() {
-  document.getElementById('btn-new-book')?.addEventListener('click', () => {
+  const openBookForm = (book = null) => {
     const c = document.getElementById('book-form-container');
-    if (c.innerHTML) { c.innerHTML = ''; return; }
-    c.innerHTML = `
-      <div class="form-card">
-        <h3>Cadastrar Novo Livro</h3>
-        <div class="form-grid">
-          <div class="input-group"><label>Titulo</label><div class="input-wrapper"><input type="text" id="form-title" placeholder="Titulo do livro" /></div></div>
-          <div class="input-group"><label>Autor</label><div class="input-wrapper"><input type="text" id="form-author" placeholder="Nome do autor" /></div></div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-primary" id="btn-save-book">Salvar Livro</button>
-          <button class="btn btn-ghost" id="btn-cancel-book">Cancelar</button>
-        </div>
-      </div>
-    `;
+    c.innerHTML = renderBookForm(book);
+
     document.getElementById('btn-cancel-book').onclick = () => { c.innerHTML = ''; };
     document.getElementById('btn-save-book').onclick = async () => {
       const titulo = document.getElementById('form-title').value.trim();
       const autor = document.getElementById('form-author').value.trim();
+      const disponivel = document.getElementById('form-available').checked;
       if (!titulo || !autor) { alert('Preencha titulo e autor'); return; }
       try {
-        await createBook({ titulo, autor });
-        showToast('Livro cadastrado com sucesso!');
+        if (book) {
+          await updateBook(book.id, { titulo, autor, disponivel });
+          showToast('Livro atualizado!');
+        } else {
+          await createBook({ titulo, autor, disponivel });
+          showToast('Livro cadastrado com sucesso!');
+        }
         await loadData();
         renderContent();
       } catch (e) { alert(e.message); }
     };
-  });
+  };
+
+  document.getElementById('btn-new-book')?.addEventListener('click', () => openBookForm());
 
   document.getElementById('admin-search')?.addEventListener('input', e => {
     const q = e.target.value.toLowerCase();
     const tbody = document.getElementById('books-tbody');
     const filtered = state.books.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
-    tbody.innerHTML = filtered.map(b => `
-      <tr data-id="${b.id}">
-        <td>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:32px;height:44px;border-radius:4px;background:var(--slate-100);overflow:hidden;flex-shrink:0">
-              <img src="${b.cover}" alt="" style="width:100%;height:100%;object-fit:cover" />
-            </div>
-            <span style="font-size:14px;font-weight:500;color:var(--slate-700)">${b.title}</span>
-          </div>
-        </td>
-        <td style="color:var(--slate-500)">${b.author}</td>
-        <td>${b.available}/${b.total}</td>
-        <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponivel' : 'Esgotado'}</span></td>
-        <td><button class="btn btn-sm btn-danger" data-delete="${b.id}">${icon('trash')}</button></td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = filtered.map(renderAdminBookRow).join('');
     document.getElementById('book-count').textContent = `(${filtered.length})`;
   });
 
   document.getElementById('books-tbody')?.addEventListener('click', async e => {
-    const btn = e.target.closest('[data-delete]');
-    if (!btn) return;
-    if (!confirm('Excluir este livro?')) return;
+    const editBtn = e.target.closest('[data-edit-book]');
+    const deleteBtn = e.target.closest('[data-delete]');
+
+    if (editBtn) {
+      const book = state.books.find(b => b.id === parseInt(editBtn.dataset.editBook));
+      if (book) openBookForm(book);
+      return;
+    }
+
+    if (!deleteBtn) return;
+    if (!confirm('Excluir este livro e suas reservas?')) return;
     try {
-      await deleteBook(parseInt(btn.dataset.delete));
+      await deleteBook(parseInt(deleteBtn.dataset.delete));
       showToast('Livro excluido!');
       await loadData();
       renderContent();
@@ -900,13 +973,57 @@ function bindAdminBooks() {
 
 // ─── Admin Users ──────────────────────────────────────────────────
 
+function renderAdminUserRow(u) {
+  return `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--blue-100);color:var(--blue-600);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0">${u.nome[0]}</div>
+          <span style="font-size:14px;font-weight:500;color:var(--slate-700)">${u.nome}</span>
+        </div>
+      </td>
+      <td style="color:var(--slate-500)">${u.email}</td>
+      <td>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" data-edit-user="${u.id_usuario}">${icon('edit')} Editar</button>
+          <button class="btn btn-sm btn-danger" data-delete-user="${u.id_usuario}">${icon('trash')}</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderUserForm(user) {
+  const isEdit = Boolean(user);
+  return `
+    <div class="form-card" style="margin-bottom:20px">
+      <h3>${isEdit ? 'Editar Usuario' : 'Cadastrar Usuario'}</h3>
+      <div class="form-grid">
+        <div class="input-group"><label>Nome</label><div class="input-wrapper"><input type="text" id="user-name" placeholder="Nome completo" value="${user?.nome || ''}" /></div></div>
+        <div class="input-group"><label>E-mail</label><div class="input-wrapper"><input type="email" id="user-email" placeholder="email@exemplo.com" value="${user?.email || ''}" /></div></div>
+        <div class="input-group"><label>${isEdit ? 'Nova senha opcional' : 'Senha'}</label><div class="input-wrapper"><input type="password" id="user-pass" placeholder="Minimo de 6 caracteres" /></div></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="btn-save-user">${isEdit ? 'Salvar Alteracoes' : 'Salvar Usuario'}</button>
+        <button class="btn btn-ghost" id="btn-cancel-user">Cancelar</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderAdminUsers() {
+  const activeUserIds = new Set(state.loans.filter(l => l.status === 'active' || l.status === 'overdue').map(l => l.userId));
+
   return `
     <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
       <div class="stat-card"><div class="stat-icon blue">${icon('users')}</div><div class="stat-value">${state.users.length}</div><div class="stat-label">Total</div></div>
-      <div class="stat-card"><div class="stat-icon yellow">${icon('bookCopy')}</div><div class="stat-value">${state.loans.filter(l => l.status === 'active').length}</div><div class="stat-label">Com emprestimos</div></div>
+      <div class="stat-card"><div class="stat-icon yellow">${icon('bookCopy')}</div><div class="stat-value">${activeUserIds.size}</div><div class="stat-label">Com emprestimos</div></div>
       <div class="stat-card"><div class="stat-icon green">${icon('alertCircle')}</div><div class="stat-value">${state.loans.filter(l => l.status === 'overdue').length}</div><div class="stat-label">Em atraso</div></div>
     </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-primary" id="btn-new-user">${icon('plus')} Novo Usuario</button>
+    </div>
+    <div id="user-form-container"></div>
     <div class="card" style="overflow:hidden">
       <div style="padding:16px 20px;border-bottom:1px solid var(--slate-50)">
         <h3 style="font-size:16px;font-weight:600">Usuarios Cadastrados</h3>
@@ -914,25 +1031,70 @@ function renderAdminUsers() {
       <div class="table-container">
         <table>
           <thead><tr><th>Usuario</th><th>E-mail</th><th>Acoes</th></tr></thead>
-          <tbody>
-            ${state.users.map(u => `
-              <tr>
-                <td>
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:32px;height:32px;border-radius:50%;background:var(--blue-100);color:var(--blue-600);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0">${u.nome[0]}</div>
-                    <span style="font-size:14px;font-weight:500;color:var(--slate-700)">${u.nome}</span>
-                  </div>
-                </td>
-                <td style="color:var(--slate-500)">${u.email}</td>
-                <td><button class="btn btn-sm btn-ghost">${icon('eye')}</button></td>
-              </tr>
-            `).join('')}
+          <tbody id="users-tbody">
+            ${state.users.map(renderAdminUserRow).join('')}
             ${state.users.length === 0 ? '<tr><td colspan="3" style="text-align:center;color:var(--slate-400);padding:32px">Nenhum usuario encontrado</td></tr>' : ''}
           </tbody>
         </table>
       </div>
     </div>
   `;
+}
+
+function bindAdminUsers() {
+  const openUserForm = (user = null) => {
+    const c = document.getElementById('user-form-container');
+    c.innerHTML = renderUserForm(user);
+
+    document.getElementById('btn-cancel-user').onclick = () => { c.innerHTML = ''; };
+    document.getElementById('btn-save-user').onclick = async () => {
+      const nome = document.getElementById('user-name').value.trim();
+      const email = document.getElementById('user-email').value.trim();
+      const senha = document.getElementById('user-pass').value;
+
+      if (!nome || !email) { alert('Preencha nome e e-mail'); return; }
+      if (!user && !senha) { alert('Informe uma senha'); return; }
+      if (senha && senha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres'); return; }
+
+      try {
+        const payload = { nome, email };
+        if (senha) payload.senha = senha;
+
+        if (user) {
+          await updateUser(user.id_usuario, payload);
+          showToast('Usuario atualizado!');
+        } else {
+          await createUser(payload);
+          showToast('Usuario cadastrado!');
+        }
+
+        await loadData();
+        renderContent();
+      } catch (e) { alert(e.message); }
+    };
+  };
+
+  document.getElementById('btn-new-user')?.addEventListener('click', () => openUserForm());
+
+  document.getElementById('users-tbody')?.addEventListener('click', async e => {
+    const editBtn = e.target.closest('[data-edit-user]');
+    const deleteBtn = e.target.closest('[data-delete-user]');
+
+    if (editBtn) {
+      const user = state.users.find(u => u.id_usuario === parseInt(editBtn.dataset.editUser));
+      if (user) openUserForm(user);
+      return;
+    }
+
+    if (!deleteBtn) return;
+    if (!confirm('Excluir este usuario e suas reservas?')) return;
+    try {
+      await deleteUser(parseInt(deleteBtn.dataset.deleteUser));
+      showToast('Usuario excluido!');
+      await loadData();
+      renderContent();
+    } catch (err) { alert(err.message); }
+  });
 }
 
 // ─── Admin Loans ──────────────────────────────────────────────────
@@ -951,22 +1113,29 @@ function renderAdminLoans() {
       </div>
       <div class="table-container">
         <table>
-          <thead><tr><th>Livro</th><th>Data</th><th>Status</th><th>Acoes</th></tr></thead>
-          <tbody>
+          <thead><tr><th>Livro</th><th>Usuario</th><th>Data</th><th>Status</th><th>Acoes</th></tr></thead>
+          <tbody id="loans-tbody">
             ${loans.map(l => {
               const book = state.books.find(b => b.id === l.bookId) || { title: 'Livro', author: '?' };
+              const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuario' };
               return `
                 <tr>
                   <td><span style="font-size:14px;font-weight:500;color:var(--slate-700)">${book.title}</span> <span style="font-size:12px;color:var(--slate-400);margin-left:6px">${book.author}</span></td>
+                  <td style="color:var(--slate-500)">${user.nome}</td>
                   <td style="color:var(--slate-500)">${l.borrowDate}</td>
-                  <td><span class="badge ${l.status === 'active' ? 'badge-green' : l.status === 'overdue' ? 'badge-red' : 'badge-slate'}">${l.status === 'active' ? 'Ativo' : l.status === 'overdue' ? 'Atrasado' : 'Devolvido'}</span></td>
+                  <td>${statusBadge(l.status)}</td>
                   <td>
-                    ${l.status === 'active' ? `<button class="btn btn-sm btn-secondary" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                      ${l.status === 'active' ? `<button class="btn btn-sm btn-secondary" data-delay-loan="${l.id}">${icon('clock')} Atrasar</button>` : ''}
+                      ${l.status === 'active' || l.status === 'overdue' ? `<button class="btn btn-sm btn-secondary" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
+                      ${l.status === 'active' || l.status === 'overdue' ? `<button class="btn btn-sm btn-danger" data-cancel-loan="${l.id}">${icon('x')} Cancelar</button>` : ''}
+                      <button class="btn btn-sm btn-danger" data-delete-loan="${l.id}">${icon('trash')}</button>
+                    </div>
                   </td>
                 </tr>
               `;
             }).join('')}
-            ${loans.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:var(--slate-400);padding:32px">Nenhum emprestimo encontrado</td></tr>' : ''}
+            ${loans.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:var(--slate-400);padding:32px">Nenhum emprestimo encontrado</td></tr>' : ''}
           </tbody>
         </table>
       </div>
@@ -975,15 +1144,36 @@ function renderAdminLoans() {
 }
 
 function bindAdminLoans() {
-  document.querySelectorAll('[data-devolve]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      try {
-        await updateReservation(parseInt(btn.dataset.devolve), 'DEVOLVIDO');
+  document.getElementById('loans-tbody')?.addEventListener('click', async e => {
+    const delayBtn = e.target.closest('[data-delay-loan]');
+    const returnBtn = e.target.closest('[data-devolve]');
+    const cancelBtn = e.target.closest('[data-cancel-loan]');
+    const deleteBtn = e.target.closest('[data-delete-loan]');
+
+    try {
+      if (delayBtn) {
+        await updateReservation(parseInt(delayBtn.dataset.delayLoan), 'ATRASADA');
+        showToast('Emprestimo marcado como atrasado!');
+      } else if (returnBtn) {
+        await updateReservation(parseInt(returnBtn.dataset.devolve), 'DEVOLVIDO');
         showToast('Devolucao registrada!');
-        await loadData();
-        renderContent();
-      } catch (e) { alert(e.message); }
-    });
+      } else if (cancelBtn) {
+        if (!confirm('Cancelar esta reserva?')) return;
+        await updateReservation(parseInt(cancelBtn.dataset.cancelLoan), 'CANCELADA');
+        showToast('Reserva cancelada!');
+      } else if (deleteBtn) {
+        if (!confirm('Excluir este registro de reserva?')) return;
+        await deleteReservation(parseInt(deleteBtn.dataset.deleteLoan));
+        showToast('Reserva excluida!');
+      } else {
+        return;
+      }
+
+      await loadData();
+      renderContent();
+    } catch (e) {
+      alert(e.message);
+    }
   });
 }
 

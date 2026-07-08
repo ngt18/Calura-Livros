@@ -1,14 +1,53 @@
 const API = 'http://localhost:3031';
+const REQUEST_TIMEOUT_MS = 8000;
 
 async function apiReq(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (res.status === 204) return null;
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error || 'Erro na requisicao');
-  return data;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  try {
+    const res = await fetch(`${API}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+
+    if (res.status === 204) return null;
+
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (error) {
+      data = null;
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || text || `Erro HTTP ${res.status}`);
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('A API demorou para responder. Tente novamente em alguns segundos.');
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new Error('A API retornou uma resposta invalida.');
+    }
+
+    if (error instanceof TypeError) {
+      throw new Error('Nao foi possivel conectar na API. Verifique se o backend esta rodando na porta 3031.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function fetchBooks() {
@@ -81,9 +120,9 @@ async function deleteReservation(id) {
   return await apiReq(`/reservations/${id}`, { method: 'DELETE' });
 }
 
-async function loginUser(email) {
-  const users = await fetchUsers();
-  const user = users.find(u => u.email === email);
-  if (!user) throw new Error('Usuario nao encontrado');
-  return user;
+async function loginUser(email, senha) {
+  return await apiReq('/users/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, senha }),
+  });
 }
