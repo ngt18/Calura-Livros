@@ -1,152 +1,207 @@
-const {pool} = require("../database/connection");
+const { pool } = require("../database/connection");
 
-async function getBooks(req , res){
- try {
-     const [rows] = await pool.query(`SELECT * FROM livros;`);
+const BOOK_SELECT = `
+  SELECT
+    l.id_livro,
+    l.titulo,
+    l.autor,
+    CASE
+      WHEN EXISTS (
+        SELECT 1
+        FROM reservas r
+        WHERE r.id_livro = l.id_livro
+          AND r.status IN ('ATIVA', 'ATRASADA')
+      ) THEN 0
+      ELSE l.disponivel
+    END AS disponivel
+  FROM livros l
+`;
 
-     return res.status(200).json(rows);
-
- } catch (error) {
-     console.log(error);
-     return res.status(500).json({
-          error : "Error getting books"
-     });
- }
-}
-async function getBookById(req , res){
-    const {id} = req.params;
-
-    try {
-       const [rows] = await pool.query(
-        `SELECT * FROM livros WHERE id_livro = ?;`, [id]
-       );
-       return res.status(200).json(rows[0]);
-    }catch(error){
-       console.log(error);
-       return res.status(500).json({
-        error: "error getting book"
-    });
-    }
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-
-async function createBook(req , res){
- const { titulo, autor, disponivel } = req.body;
-
-  if (!titulo) {
-    return res.status(400).send('O título do livro é obrigatório.');
+function normalizeBoolean(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    return ["true", "1", "sim", "yes"].includes(value.toLowerCase());
   }
-  if (!autor) {
-    return res.status(400).send('O autor do livro é obrigatório.');
-  }
+  return fallback;
+}
 
+async function getBooks(req, res) {
+  try {
+    const [rows] = await pool.query(`${BOOK_SELECT} ORDER BY l.titulo;`);
+    return res.status(200).json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Error getting books" });
+  }
+}
+
+async function getBookById(req, res) {
+  const id = parseInt(req.params.id, 10);
+
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: "Invalid ID" });
+  }
 
   try {
-     
-    const [result] = await pool.query(
-      'INSERT INTO livros (titulo, autor, disponivel) VALUES (?, ?, ?)',
-      [titulo, autor, disponivel  ?? true] 
+    const [rows] = await pool.query(
+      `${BOOK_SELECT} WHERE l.id_livro = ?;`,
+      [id]
     );
 
-    
-    const novoLivro = { id: result.insertId, titulo, autor, disponivel: disponivel ?? true };
-    res.status(201).json(novoLivro); 
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    return res.status(200).json(rows[0]);
   } catch (error) {
-    console.error('Erro ao adicionar novo livro:', error);
-    res.status(500).send('Erro interno do servidor ao adicionar novo livro.');
+    console.error(error);
+    return res.status(500).json({ error: "Error getting book" });
   }
-};
-
-
-async function updateBook(req , res){
- const id = parseInt(req.params.id);
-  const { titulo, autor, disponivel } = req.body;
-
-  if (isNaN(id)) {
-    return res.status(400).send('ID inválido. O ID deve ser um número.');
-  }
- if (
-  titulo === undefined &&
-  autor === undefined &&
-  disponivel === undefined
-) {
-  return res.status(400).json({
-    error: "Pelo menos um campo deve ser fornecido para atualização."
-  });
 }
 
+async function createBook(req, res) {
+  const titulo = normalizeString(req.body.titulo);
+  const autor = normalizeString(req.body.autor);
+  const disponivel = normalizeBoolean(req.body.disponivel, true);
+
+  if (!titulo || !autor) {
+    return res.status(400).json({ error: "Titulo e autor obrigatorios" });
+  }
+
   try {
-    
-    const [existingRows] = await pool.query('SELECT * FROM livros WHERE id_livro = ?', [id]);
+    const [result] = await pool.query(
+      "INSERT INTO livros (titulo, autor, disponivel) VALUES (?, ?, ?)",
+      [titulo, autor, disponivel]
+    );
+
+    const [rows] = await pool.query(
+      `${BOOK_SELECT} WHERE l.id_livro = ?;`,
+      [result.insertId]
+    );
+
+    return res.status(201).json(rows[0]);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Error creating book" });
+  }
+}
+
+async function updateBook(req, res) {
+  const id = parseInt(req.params.id, 10);
+  const titulo = req.body.titulo === undefined ? undefined : normalizeString(req.body.titulo);
+  const autor = req.body.autor === undefined ? undefined : normalizeString(req.body.autor);
+  const disponivel = req.body.disponivel === undefined
+    ? undefined
+    : normalizeBoolean(req.body.disponivel, true);
+
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: "Invalid ID" });
+  }
+
+  if (titulo === undefined && autor === undefined && disponivel === undefined) {
+    return res.status(400).json({ error: "Send at least one field" });
+  }
+
+  if (titulo !== undefined && !titulo) {
+    return res.status(400).json({ error: "Titulo nao pode ser vazio" });
+  }
+
+  if (autor !== undefined && !autor) {
+    return res.status(400).json({ error: "Autor nao pode ser vazio" });
+  }
+
+  try {
+    const [existingRows] = await pool.query(
+      "SELECT id_livro FROM livros WHERE id_livro = ?",
+      [id]
+    );
+
     if (existingRows.length === 0) {
-      return res.status(404).send('livro não encontrado para atualização.');
+      return res.status(404).json({ error: "Book not found" });
     }
 
-   
-    let updates = [];
-    let params = [];
+    const updates = [];
+    const params = [];
+
     if (titulo !== undefined) {
-      updates.push('titulo = ?');
+      updates.push("titulo = ?");
       params.push(titulo);
     }
+
     if (autor !== undefined) {
-      updates.push('autor = ?');
+      updates.push("autor = ?");
       params.push(autor);
     }
+
     if (disponivel !== undefined) {
-      updates.push('disponivel = ?');
+      updates.push("disponivel = ?");
       params.push(disponivel);
     }
 
-    if (updates.length === 0) { 
-        return res.status(400).send('Nenhum campo válido para atualização fornecido.');
-    }
+    params.push(id);
+    await pool.query(
+      `UPDATE livros SET ${updates.join(", ")} WHERE id_livro = ?`,
+      params
+    );
 
-    const query = `UPDATE livros SET ${updates.join(', ')} WHERE id_livro = ?`;
-    params.push(id); 
+    const [updatedRows] = await pool.query(
+      `${BOOK_SELECT} WHERE l.id_livro = ?;`,
+      [id]
+    );
 
-    const [result] = await pool.query(query, params);
-
-    if (result.affectedRows > 0) {
-      
-      const [updatedRows] = await pool.query('SELECT * FROM livros WHERE id_livro = ?', [id]);
-      res.json(updatedRows[0]);
-    } else {
-      
-      res.status(404).send('livro não encontrado ou nenhum dado foi alterado.');
-    }
+    return res.json(updatedRows[0]);
   } catch (error) {
-    console.error(`Erro ao atualizar livro com ID ${id}:`, error);
-    res.status(500).send('Erro interno do servidor ao atualizar livro.');
+    console.error(error);
+    return res.status(500).json({ error: "Error updating book" });
   }
 }
 
-async function deleteBook(req , res){
-const id = parseInt(req.params.id);
+async function deleteBook(req, res) {
+  const id = parseInt(req.params.id, 10);
 
-  if (isNaN(id)) {
-    return res.status(400).send('ID inválido. O ID deve ser um número.');
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: "Invalid ID" });
   }
+
+  const connection = await pool.getConnection();
 
   try {
-    const [result] = await pool.query('DELETE FROM livros WHERE id_livro = ?', [id]);
+    await connection.beginTransaction();
 
-    if (result.affectedRows > 0) { 
-      res.status(204).send();
-    } else {
-      res.status(404).send('livro não encontrado para exclusão.');
+    const [existingRows] = await connection.query(
+      "SELECT id_livro FROM livros WHERE id_livro = ?",
+      [id]
+    );
+
+    if (existingRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: "Book not found" });
     }
+
+    await connection.query("DELETE FROM reservas WHERE id_livro = ?", [id]);
+    await connection.query("DELETE FROM livros WHERE id_livro = ?", [id]);
+    await connection.commit();
+
+    return res.status(204).send();
   } catch (error) {
-    console.error(`Erro ao excluir livro com ID ${id}:`, error);
-    res.status(500).send('Erro interno do servidor ao excluir livro.');
+    await connection.rollback();
+    console.error(error);
+    return res.status(500).json({ error: "Error deleting book" });
+  } finally {
+    connection.release();
   }
 }
 
-
 module.exports = {
-    getBooks,
-    getBookById,
-    createBook,
-    updateBook,
-    deleteBook
-}
+  getBooks,
+  getBookById,
+  createBook,
+  updateBook,
+  deleteBook
+};

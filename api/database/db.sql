@@ -5,7 +5,9 @@ USE biblioteca;
 CREATE TABLE usuarios (
     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL
+    email VARCHAR(100) NOT NULL UNIQUE,
+    senha_hash VARCHAR(255) NOT NULL,
+    senha_salt VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE livros (
@@ -22,6 +24,6 @@ CREATE TABLE reservas (
     id_usuario INT NOT NULL,
     id_livro INT NOT NULL,
 
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
-    FOREIGN KEY (id_livro) REFERENCES livros(id_livro)
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    FOREIGN KEY (id_livro) REFERENCES livros(id_livro) ON DELETE CASCADE
 );
