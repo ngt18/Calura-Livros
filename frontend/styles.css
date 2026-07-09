@@ -917,6 +917,128 @@ img { display: block; max-width: 100%; }
   .loan-card { flex-direction: row; }
   .loan-cover { width: 80px; }
 }
+.notif-dropdown {
+  position: fixed;
+  width: 320px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  z-index: 1000;
+  overflow: hidden;
+  animation: notifIn 150ms ease-out;
+}
+@keyframes notifIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.notif-header {
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 1px solid var(--slate-200);
+  color: var(--slate-700);
+}
+.notif-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.notif-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--slate-100);
+  transition: background 150ms;
+}
+.notif-item:hover { background: var(--slate-50); }
+.notif-item.notif-overdue {
+  background: #fef2f2;
+}
+.notif-item.notif-overdue:hover {
+  background: #fee2e2;
+}
+.notif-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--slate-100);
+  color: var(--slate-500);
+}
+.notif-overdue .notif-icon {
+  background: #fecaca;
+  color: var(--red-500);
+}
+.notif-body {
+  flex: 1;
+  min-width: 0;
+}
+.notif-title {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--slate-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notif-desc {
+  font-size: 12px;
+  color: var(--slate-500);
+  margin-top: 2px;
+}
+.notif-date {
+  font-size: 11px;
+  color: var(--slate-400);
+  margin-top: 2px;
+}
+#pagination {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+.pag-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--slate-200);
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--slate-600);
+  cursor: pointer;
+  transition: all 150ms;
+}
+.pag-btn:hover:not([disabled]) {
+  background: var(--slate-50);
+  border-color: var(--blue-300);
+  color: var(--blue-600);
+}
+.pag-btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.pag-info {
+  font-size: 13px;
+  color: var(--slate-400);
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.notif-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--slate-400);
+  font-size: 13px;
+}
 
 @media (max-width: 1023px) {
   .topbar-menu { display: block; }

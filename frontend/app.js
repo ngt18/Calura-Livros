@@ -25,11 +25,48 @@ const state = {
   loading: false,
 };
 
+// ─── Routes ────────────────────────────────────────────────────────
+
+const routes = {
+  '/login': 'login',
+  '/catalogo': 'dashboard',
+  '/minhas-reservas': 'my-loans',
+  '/perfil': 'profile',
+  '/livro': 'book-detail',
+  '/admin': 'admin-dashboard',
+  '/admin/livros': 'admin-books',
+  '/admin/usuarios': 'admin-users',
+  '/admin/reservas': 'admin-loans',
+};
+
+const screenToPath = Object.fromEntries(
+  Object.entries(routes).map(([k, v]) => [v, k])
+);
+
 function navigate(screen) {
   state.screen = screen;
   state.sidebarOpen = false;
+  const path = screenToPath[screen] || '/';
+  history.pushState({ screen }, '', path);
   render();
 }
+
+window.addEventListener('popstate', () => {
+  const path = window.location.pathname;
+  const screen = routes[path];
+  if (!screen) {
+    history.replaceState({ screen: 'login' }, '', '/login');
+    state.screen = 'login';
+    render();
+    return;
+  }
+  if (screen === 'book-detail' && !state.selectedBook) {
+    navigate('dashboard');
+    return;
+  }
+  state.screen = screen;
+  render();
+});
 
 function showToast(msg, isError) {
   const existing = document.querySelector('.toast');
@@ -122,6 +159,7 @@ function icon(name) {
     search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
     bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     arrowLeft: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
+    arrowRight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     star: '<svg width="12" height="12" viewBox="0 0 24 24" fill="#facc15" stroke="#facc15" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
     check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
     alertCircle: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
@@ -159,9 +197,11 @@ function mapReservation(r) {
     id: r.id_reserva,
     bookId: r.id_livro,
     userId: r.id_usuario,
+    bookTitle: r.livro_titulo || 'Livro',
     borrowDate: formatDate(r.data_reserva),
     dataEmprestimo: formatDate(r.data_emprestimo),
     dataPrevista: formatDate(r.data_prevista),
+    dueDate: r.data_prevista || null,
     dataDevolucao: formatDate(r.data_devolucao),
     status: STATUS_MAP[rawStatus] || 'active',
   };
@@ -462,11 +502,66 @@ function bindLayout() {
   const logoutBtn = document.getElementById('btn-logout');
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
+  const bellBtn = document.querySelector('.topbar-bell');
+  if (bellBtn) bellBtn.addEventListener('click', toggleNotifications);
+
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.nav));
   });
 
   renderContent();
+}
+
+function renderNotifications() {
+  const loans = state.loans;
+  const pending = loans.filter(l => l.status === 'active' || l.status === 'overdue');
+  if (pending.length === 0) {
+    return `<div class="notif-empty">Nenhuma notificacao</div>`;
+  }
+  return pending.map(l => {
+    const isOverdue = l.status === 'overdue';
+    return `
+      <div class="notif-item ${isOverdue ? 'notif-overdue' : ''}">
+        <div class="notif-icon">${icon(isOverdue ? 'alertCircle' : 'clock')}</div>
+        <div class="notif-body">
+          <div class="notif-title">${l.bookTitle || 'Livro'}</div>
+          <div class="notif-desc">${isOverdue ? 'Atrasado - prazo excedido' : 'Emprestimo ativo'}</div>
+          <div class="notif-date">Devolucao: ${l.dueDate ? new Date(l.dueDate).toLocaleDateString('pt-BR') : '—'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleNotifications() {
+  const existing = document.querySelector('.notif-dropdown');
+  if (existing) { existing.remove(); return; }
+
+  const bell = document.querySelector('.topbar-bell');
+  if (!bell) return;
+  const rect = bell.getBoundingClientRect();
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'notif-dropdown';
+  dropdown.innerHTML = `
+    <div class="notif-header">Notificacoes</div>
+    <div class="notif-list">${renderNotifications()}</div>
+  `;
+  dropdown.style.top = (rect.bottom + 8) + 'px';
+  dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+  document.body.appendChild(dropdown);
+
+  setTimeout(() => {
+    document.addEventListener('click', closeNotif, { once: true });
+  }, 0);
+
+  function closeNotif(e) {
+    if (!dropdown.contains(e.target) && e.target !== bell) {
+      dropdown.remove();
+    } else {
+      document.addEventListener('click', closeNotif, { once: true });
+    }
+  }
 }
 
 // ─── Content Router ───────────────────────────────────────────────
@@ -500,7 +595,7 @@ function renderDashboard() {
     loaned: books.filter(b => b.available === 0).length,
     myActive: state.user ? state.loans.filter(l => l.userId === state.user.id && computeStatus(l) === 'active').length : 0,
   };
-  const filtered = books;
+  const initialPage = books.slice(0, 50);
 
   return `
     <div class="dash-hero">
@@ -538,14 +633,15 @@ function renderDashboard() {
     </div>
     <section>
       <div class="section-header">
-        <h2 id="catalog-title">Catalogo <span>(${filtered.length} livros)</span></h2>
+        <h2 id="catalog-title">Catalogo <span>(${books.length} livros)</span></h2>
       </div>
       <div class="books-grid" id="books-grid">
-        ${filtered.length === 0
+        ${initialPage.length === 0
           ? `<div class="empty-state" style="grid-column:1/-1">${icon('book')}<p>Nenhum livro encontrado</p></div>`
-          : filtered.map(renderBookCard).join('')
+          : initialPage.map(renderBookCard).join('')
         }
       </div>
+      <div id="pagination"></div>
     </section>
   `;
 }
@@ -565,7 +661,7 @@ function renderBookCard(book) {
         <div class="book-author">${book.author}</div>
         <div class="book-footer">
           <span class="avail">${book.available}/${book.total} disp.</span>
-          <button class="btn btn-sm ${avail ? 'btn-primary' : 'btn-ghost'}" data-borrow="${book.id}" ${!avail ? 'disabled' : ''}>${avail ? 'Emprestar' : 'Indisponivel'}</button>
+          <button class="btn btn-sm ${avail ? 'btn-primary' : 'btn-ghost'}" data-borrow="${book.id}" ${!avail ? 'disabled' : ''}>${avail ? 'Reservar' : 'Indisponivel'}</button>
         </div>
       </div>
     </div>
@@ -575,24 +671,55 @@ function renderBookCard(book) {
 function bindDashboard() {
   let searchQuery = '';
   let activeCategory = 'Todos';
+  let currentPage = 1;
+  const PAGE_SIZE = 50;
+
+  const renderPagination = (totalItems) => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const pagEl = document.getElementById('pagination');
+    if (!pagEl) return;
+    if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
+    let html = '<div class="pag-btns">';
+    html += `<button class="pag-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>${icon('arrowLeft')} Anterior</button>`;
+    html += '<div class="pag-info">Pagina ' + currentPage + ' de ' + totalPages + '</div>';
+    html += `<button class="pag-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>Proximo ${icon('arrowRight')}</button>`;
+    html += '</div>';
+    pagEl.innerHTML = html;
+
+    pagEl.querySelectorAll('.pag-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentPage = parseInt(btn.dataset.page, 10);
+        filterBooks();
+      });
+    });
+  };
 
   const filterBooks = () => {
     let list = state.books;
     if (activeCategory !== 'Todos') list = list.filter(b => b.title.toLowerCase().includes(activeCategory.toLowerCase()) || b.author.toLowerCase().includes(activeCategory.toLowerCase()));
     if (searchQuery) list = list.filter(b => b.title.toLowerCase().includes(searchQuery.toLowerCase()) || b.author.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const totalFiltered = list.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = list.slice(start, start + PAGE_SIZE);
+
     const grid = document.getElementById('books-grid');
     const title = document.getElementById('catalog-title');
-    if (title) title.innerHTML = searchQuery ? `Resultados para "${searchQuery}" <span>(${list.length} livros)</span>` : `Catalogo <span>(${list.length} livros)</span>`;
-    if (grid) grid.innerHTML = list.length === 0
+    if (title) title.innerHTML = searchQuery ? `Resultados para "${searchQuery}" <span>(${totalFiltered} livros)</span>` : `Catalogo <span>(${totalFiltered} livros)</span>`;
+    if (grid) grid.innerHTML = pageItems.length === 0
       ? `<div class="empty-state" style="grid-column:1/-1">${icon('book')}<p>Nenhum livro encontrado</p></div>`
-      : list.map(renderBookCard).join('');
+      : pageItems.map(renderBookCard).join('');
     bindBookCards();
+    renderPagination(totalFiltered);
   };
 
   const searchInput = document.getElementById('search-input');
   if (searchInput) searchInput.addEventListener('input', e => {
     searchQuery = e.target.value;
+    currentPage = 1;
     filterBooks();
   });
 
@@ -601,6 +728,7 @@ function bindDashboard() {
       activeCategory = btn.dataset.cat;
       document.querySelectorAll('#cat-bar button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      currentPage = 1;
       filterBooks();
     });
   });
@@ -1339,4 +1467,9 @@ function bindAdminLoans() {
 
 // ─── Init ─────────────────────────────────────────────────────────
 
+const initPath = window.location.pathname;
+const initScreen = routes[initPath] || 'login';
+state.screen = initScreen;
+const destPath = screenToPath[initScreen] || '/login';
+history.replaceState({ screen: initScreen }, '', destPath);
 render();
