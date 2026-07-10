@@ -15,7 +15,8 @@ CREATE TABLE livros (
     titulo VARCHAR(150) NOT NULL,
     autor VARCHAR(100) NOT NULL,
     paginas INT DEFAULT 0,
-    disponivel BOOLEAN DEFAULT TRUE
+    disponivel BOOLEAN DEFAULT TRUE,
+    imagem VARCHAR(500)
 );
 
 CREATE TABLE reservas (

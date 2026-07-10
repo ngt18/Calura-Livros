@@ -51,6 +51,11 @@ async function ensureRuntimeSchema(connection) {
         await connection.query("ALTER TABLE livros ADD COLUMN paginas INT DEFAULT 0 AFTER autor");
     }
 
+    const hasImagem = await columnExists(connection, "livros", "imagem");
+    if (!hasImagem) {
+        await connection.query("ALTER TABLE livros ADD COLUMN imagem VARCHAR(500) AFTER disponivel");
+    }
+
     const hasDataEmprestimo = await columnExists(connection, "reservas", "data_emprestimo");
     if (!hasDataEmprestimo) {
         await connection.query("ALTER TABLE reservas ADD COLUMN data_emprestimo DATE AFTER data_reserva");
