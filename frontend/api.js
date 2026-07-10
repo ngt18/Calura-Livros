@@ -37,11 +37,11 @@ async function apiReq(path, options = {}) {
     }
 
     if (error instanceof SyntaxError) {
-      throw new Error('A API retornou uma resposta invalida.');
+      throw new Error('A API retornou uma resposta inválida.');
     }
 
     if (error instanceof TypeError) {
-      throw new Error('Nao foi possivel conectar na API. Verifique se o backend esta rodando na porta 3031.');
+      throw new Error('Não foi possível conectar na API. Verifique se o backend está rodando na porta 3031.');
     }
 
     throw error;

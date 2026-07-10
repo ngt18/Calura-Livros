@@ -6,6 +6,7 @@ const BOOK_SELECT = `
     l.titulo,
     l.autor,
     l.paginas,
+    l.imagem,
     CASE
       WHEN EXISTS (
         SELECT 1
@@ -83,8 +84,8 @@ async function createBook(req, res) {
 
   try {
     const [result] = await pool.query(
-      "INSERT INTO livros (titulo, autor, paginas, disponivel) VALUES (?, ?, ?, ?)",
-      [titulo, autor, paginas, disponivel]
+      "INSERT INTO livros (titulo, autor, paginas, disponivel, imagem) VALUES (?, ?, ?, ?, ?)",
+      [titulo, autor, paginas, disponivel, req.body.imagem || null]
     );
 
     const [rows] = await pool.query(
@@ -112,7 +113,7 @@ async function updateBook(req, res) {
     return res.status(400).json({ error: "Invalid ID" });
   }
 
-  if (titulo === undefined && autor === undefined && paginas === undefined && disponivel === undefined) {
+  if (titulo === undefined && autor === undefined && paginas === undefined && disponivel === undefined && req.body.imagem === undefined) {
     return res.status(400).json({ error: "Send at least one field" });
   }
 
@@ -155,6 +156,11 @@ async function updateBook(req, res) {
     if (disponivel !== undefined) {
       updates.push("disponivel = ?");
       params.push(disponivel);
+    }
+
+    if (req.body.imagem !== undefined) {
+      updates.push("imagem = ?");
+      params.push(req.body.imagem);
     }
 
     params.push(id);

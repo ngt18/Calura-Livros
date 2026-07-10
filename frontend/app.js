@@ -1,4 +1,4 @@
-const CATEGORIES = ['Todos', 'Fantasia', 'Literatura Brasileira', 'Tecnologia', 'Historia', 'Ficcao Cientifica', 'Infanto-Juvenil', 'Autoajuda'];
+const CATEGORIES = ['Todos', 'Fantasia', 'Literatura Brasileira', 'Tecnologia', 'História', 'Ficção Científica', 'Infantojuvenil', 'Autoajuda'];
 const COVER_DEFAULT = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=420&fit=crop&auto=format';
 const STATUS_MAP = {
   ATIVA: 'active',
@@ -13,10 +13,36 @@ const STATUS_LABELS = {
   cancelled: 'Cancelado',
 };
 
+const SESSION_KEY = 'calura_session';
+
+function saveSession() {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    user: state.user,
+    isAdmin: state.isAdmin,
+  }));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function restoreSession() {
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    clearSession();
+    return null;
+  }
+}
+
+const savedSession = restoreSession();
+
 const state = {
-  screen: 'login',
-  isAdmin: false,
-  user: null,
+  screen: savedSession ? 'dashboard' : 'login',
+  isAdmin: savedSession?.isAdmin || false,
+  user: savedSession?.user || null,
   books: [],
   loans: [],
   users: [],
@@ -182,12 +208,12 @@ function icon(name) {
 function mapBook(b) {
   return {
     id: b.id_livro,
-    title: b.titulo || 'Sem titulo',
+    title: b.titulo || 'Sem título',
     author: b.autor || 'Desconhecido',
     paginas: Number(b.paginas) || 0,
     available: Number(b.disponivel) ? 1 : 0,
     total: 1,
-    cover: COVER_DEFAULT,
+    cover: b.imagem || COVER_DEFAULT,
   };
 }
 
@@ -230,9 +256,10 @@ async function loadData() {
 async function handleLogin(email, senha) {
   try {
     const user = await loginUser(email, senha);
-    if (!user) { showError('Resposta invalida do servidor'); return; }
+    if (!user) { showError('Resposta inválida do servidor'); return; }
     state.user = { id: user.id_usuario, nome: user.nome, email: user.email };
     state.isAdmin = false;
+    saveSession();
     await loadData();
     navigate('dashboard');
   } catch (e) {
@@ -243,6 +270,7 @@ async function handleLogin(email, senha) {
 function handleAdminLogin() {
   state.user = { id: 999, nome: 'Admin', email: 'admin@caluralivros.com' };
   state.isAdmin = true;
+  saveSession();
   loadData().then(() => navigate('admin-dashboard')).catch(console.error);
 }
 
@@ -252,6 +280,7 @@ function handleLogout() {
   state.books = [];
   state.loans = [];
   state.users = [];
+  clearSession();
   navigate('login');
 }
 
@@ -261,7 +290,7 @@ function toggleSidebar() {
 }
 
 function renderLoading() {
-  return '<div style="display:flex;justify-content:center;align-items:center;padding:64px;color:var(--slate-400)">' + icon('spinner') + ' <span style="margin-left:12px">Carregando...</span></div>';
+  return '<div style="display:flex;justify-content:center;align-items:center;padding:64px;color:var(--slate-400)">' + icon('spinner') + ' <span style="margin-left:12px">Carregando…</span></div>';
 }
 
 // ─── Render ───────────────────────────────────────────────────────
@@ -286,7 +315,7 @@ function renderLogin() {
         <div class="login-logo">
           <div class="logo-box">${icon('book')}</div>
           <h1>Calura<span>Livros</span></h1>
-          <p>Sistema de Gestao de Biblioteca</p>
+          <p>Sistema de Gestão de Biblioteca</p>
         </div>
         <div class="login-box">
           <div class="login-tabs">
@@ -332,7 +361,7 @@ function renderLogin() {
               <label>Senha</label>
               <div class="input-wrapper">
                 <span class="input-icon">${icon('book')}</span>
-                <input type="password" id="reg-pass" class="has-icon" placeholder="Minimo de 6 caracteres" />
+                <input type="password" id="reg-pass" class="has-icon" placeholder="Mínimo de 6 caracteres" />
               </div>
             </div>
             <button class="btn btn-primary btn-lg" id="btn-register" style="width:100%">Criar conta</button>
@@ -380,7 +409,7 @@ function bindLogin() {
     const e = email.value.trim();
     const s = senha.value;
     if (!e || !s) { showError('Digite e-mail e senha'); return; }
-    if (!e.includes('@')) { showError('Digite um e-mail valido'); return; }
+    if (!e.includes('@')) { showError('Digite um e-mail válido'); return; }
     handleLogin(e, s);
   };
 
@@ -398,12 +427,13 @@ function bindLogin() {
     const s = senha.value;
     if (!n || !e || !s) { showError('Preencha todos os campos'); return; }
     if (s.length < 6) { showError('A senha deve ter pelo menos 6 caracteres'); return; }
-    if (!e.includes('@')) { showError('Digite um e-mail valido'); return; }
+    if (!e.includes('@')) { showError('Digite um e-mail válido'); return; }
     try {
       const user = await createUser({ nome: n, email: e, senha: s });
-      if (!user) { showError('Resposta invalida do servidor'); return; }
+      if (!user) { showError('Resposta inválida do servidor'); return; }
       state.user = { id: user.id_usuario || user.id, nome: user.nome, email: user.email };
       state.isAdmin = false;
+      saveSession();
       await loadData();
       navigate('dashboard');
     } catch (err) {
@@ -417,13 +447,13 @@ function bindLogin() {
 function renderLayout() {
   const s = state.screen;
   const titles = {
-    dashboard: 'Catalogo',
+    dashboard: 'Catálogo',
     'book-detail': 'Detalhes do Livro',
     'my-loans': 'Minhas Reservas',
     profile: 'Perfil',
     'admin-dashboard': 'Dashboard',
-    'admin-books': 'Gestao de Livros',
-    'admin-users': 'Usuarios',
+    'admin-books': 'Gestão de Livros',
+    'admin-users': 'Usuários',
     'admin-loans': 'Reservas',
   };
 
@@ -444,7 +474,7 @@ function renderLayout() {
             <div class="topbar-user">
               <div class="topbar-avatar">${state.user?.nome?.[0] || 'A'}</div>
               <div class="topbar-user-info">
-                <div class="name">${state.user?.nome || 'Usuario'}</div>
+                <div class="name">${state.user?.nome || 'Usuário'}</div>
                 <div class="role">${state.isAdmin ? 'Administrador' : 'Estudante'}</div>
               </div>
             </div>
@@ -460,14 +490,14 @@ function renderLayout() {
 function renderSidebar() {
   const s = state.screen;
   const userNav = [
-    { icon: 'home', label: 'Inicio', screen: 'dashboard' },
+    { icon: 'home', label: 'Início', screen: 'dashboard' },
     { icon: 'clipboard', label: 'Minhas Reservas', screen: 'my-loans' },
     { icon: 'user', label: 'Perfil', screen: 'profile' },
   ];
   const adminNav = [
     { icon: 'dashboard', label: 'Dashboard', screen: 'admin-dashboard' },
     { icon: 'book', label: 'Livros', screen: 'admin-books' },
-    { icon: 'users', label: 'Usuarios', screen: 'admin-users' },
+    { icon: 'users', label: 'Usuários', screen: 'admin-users' },
     { icon: 'clipboard', label: 'Reservas', screen: 'admin-loans' },
   ];
   const nav = state.isAdmin ? adminNav : userNav;
@@ -479,7 +509,7 @@ function renderSidebar() {
         <span class="logo-text">Calura<span>Livros</span></span>
       </div>
       <nav class="sidebar-nav">
-        ${state.isAdmin ? '<p class="nav-label">Administracao</p>' : ''}
+        ${state.isAdmin ? '<p class="nav-label">Administração</p>' : ''}
         ${nav.map(item => `
           <button class="${s === item.screen ? 'active' : ''}" data-nav="${item.screen}">
             ${icon(item.icon)} ${item.label}
@@ -516,7 +546,7 @@ function renderNotifications() {
   const loans = state.loans;
   const pending = loans.filter(l => l.status === 'active' || l.status === 'overdue');
   if (pending.length === 0) {
-    return `<div class="notif-empty">Nenhuma notificacao</div>`;
+    return `<div class="notif-empty">Nenhuma notificação</div>`;
   }
   return pending.map(l => {
     const isOverdue = l.status === 'overdue';
@@ -525,8 +555,8 @@ function renderNotifications() {
         <div class="notif-icon">${icon(isOverdue ? 'alertCircle' : 'clock')}</div>
         <div class="notif-body">
           <div class="notif-title">${l.bookTitle || 'Livro'}</div>
-          <div class="notif-desc">${isOverdue ? 'Atrasado - prazo excedido' : 'Emprestimo ativo'}</div>
-          <div class="notif-date">Devolucao: ${l.dueDate ? new Date(l.dueDate).toLocaleDateString('pt-BR') : '—'}</div>
+          <div class="notif-desc">${isOverdue ? 'Atrasado - prazo excedido' : 'Empréstimo ativo'}</div>
+          <div class="notif-date">Devolução: ${l.dueDate ? new Date(l.dueDate).toLocaleDateString('pt-BR') : '—'}</div>
         </div>
       </div>
     `;
@@ -543,8 +573,8 @@ function toggleNotifications() {
 
   const dropdown = document.createElement('div');
   dropdown.className = 'notif-dropdown';
-  dropdown.innerHTML = `
-    <div class="notif-header">Notificacoes</div>
+    dropdown.innerHTML = `
+    <div class="notif-header">Notificações</div>
     <div class="notif-list">${renderNotifications()}</div>
   `;
   dropdown.style.top = (rect.bottom + 8) + 'px';
@@ -599,11 +629,11 @@ function renderDashboard() {
 
   return `
     <div class="dash-hero">
-      <h2>Ola, ${state.user?.nome?.split(' ')[0] || 'Visitante'}!</h2>
-      <p>O que voce quer ler hoje?</p>
+      <h2>Olá, ${state.user?.nome?.split(' ')[0] || 'Visitante'}!</h2>
+      <p>O que você quer ler hoje?</p>
       <div class="search-box">
         ${icon('search')}
-        <input type="text" id="search-input" placeholder="Buscar por titulo ou autor..." />
+        <input type="text" id="search-input" placeholder="Buscar por título ou autor..." />
       </div>
     </div>
     <div class="stats-grid">
@@ -615,7 +645,7 @@ function renderDashboard() {
       <div class="stat-card">
         <div class="stat-icon green">${icon('check')}</div>
         <div class="stat-value">${stats.available}</div>
-        <div class="stat-label">Disponiveis</div>
+        <div class="stat-label">Disponíveis</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon yellow">${icon('bookCopy')}</div>
@@ -633,7 +663,7 @@ function renderDashboard() {
     </div>
     <section>
       <div class="section-header">
-        <h2 id="catalog-title">Catalogo <span>(${books.length} livros)</span></h2>
+        <h2 id="catalog-title">Catálogo <span>(${books.length} livros)</span></h2>
       </div>
       <div class="books-grid" id="books-grid">
         ${initialPage.length === 0
@@ -652,7 +682,7 @@ function renderBookCard(book) {
     <div class="book-card" data-book-id="${book.id}">
       <div class="book-cover">
         <img src="${book.cover}" alt="${book.title}" loading="lazy" />
-        <span class="cover-badge badge ${avail ? 'badge-green' : 'badge-red'}">${avail ? 'Disponivel' : 'Emprestado'}</span>
+        <span class="cover-badge badge ${avail ? 'badge-green' : 'badge-red'}">${avail ? 'Disponível' : 'Emprestado'}</span>
         <span class="cover-rating">${icon('star')} ${(4 + (book.id % 10) / 10).toFixed(1)}</span>
       </div>
       <div class="book-info">
@@ -661,7 +691,7 @@ function renderBookCard(book) {
         <div class="book-author">${book.author}</div>
         <div class="book-footer">
           <span class="avail">${book.available}/${book.total} disp.</span>
-          <button class="btn btn-sm ${avail ? 'btn-primary' : 'btn-ghost'}" data-borrow="${book.id}" ${!avail ? 'disabled' : ''}>${avail ? 'Reservar' : 'Indisponivel'}</button>
+          <button class="btn btn-sm ${avail ? 'btn-primary' : 'btn-ghost'}" data-borrow="${book.id}" ${!avail ? 'disabled' : ''}>${avail ? 'Reservar' : 'Indisponível'}</button>
         </div>
       </div>
     </div>
@@ -682,8 +712,8 @@ function bindDashboard() {
     if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
     let html = '<div class="pag-btns">';
     html += `<button class="pag-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>${icon('arrowLeft')} Anterior</button>`;
-    html += '<div class="pag-info">Pagina ' + currentPage + ' de ' + totalPages + '</div>';
-    html += `<button class="pag-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>Proximo ${icon('arrowRight')}</button>`;
+    html += '<div class="pag-info">Página ' + currentPage + ' de ' + totalPages + '</div>';
+    html += `<button class="pag-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>Próximo ${icon('arrowRight')}</button>`;
     html += '</div>';
     pagEl.innerHTML = html;
 
@@ -708,7 +738,7 @@ function bindDashboard() {
 
     const grid = document.getElementById('books-grid');
     const title = document.getElementById('catalog-title');
-    if (title) title.innerHTML = searchQuery ? `Resultados para "${searchQuery}" <span>(${totalFiltered} livros)</span>` : `Catalogo <span>(${totalFiltered} livros)</span>`;
+    if (title) title.innerHTML = searchQuery ? `Resultados para "${searchQuery}" <span>(${totalFiltered} livros)</span>` : `Catálogo <span>(${totalFiltered} livros)</span>`;
     if (grid) grid.innerHTML = pageItems.length === 0
       ? `<div class="empty-state" style="grid-column:1/-1">${icon('book')}<p>Nenhum livro encontrado</p></div>`
       : pageItems.map(renderBookCard).join('');
@@ -776,11 +806,11 @@ async function handleBorrow(bookId) {
 
 function renderBookDetail() {
   const book = state.selectedBook;
-  if (!book) return '<p>Livro nao encontrado</p>';
+  if (!book) return '<p>Livro não encontrado</p>';
   const avail = book.available > 0;
   const dias = calcLoanDays(book.paginas);
   return `
-    <button class="detail-back" id="btn-back">${icon('arrowLeft')} Voltar ao catalogo</button>
+    <button class="detail-back" id="btn-back">${icon('arrowLeft')} Voltar ao catálogo</button>
     <div class="detail-card">
       <div class="detail-cover">
         <img src="${book.cover}" alt="${book.title}" />
@@ -798,13 +828,13 @@ function renderBookDetail() {
           <div class="meta-item"><div class="label">Editora</div><div class="value">-</div></div>
           <div class="meta-item"><div class="label">Ano</div><div class="value">-</div></div>
           <div class="meta-item"><div class="label">ISBN</div><div class="value">-</div></div>
-          <div class="meta-item"><div class="label">Paginas</div><div class="value">${book.paginas || '-'}</div></div>
-          <div class="meta-item"><div class="label">Prazo de emprestimo</div><div class="value">${dias} dias</div></div>
-          <div class="meta-item"><div class="label">Disponiveis</div><div class="value">${book.available} de ${book.total}</div></div>
+          <div class="meta-item"><div class="label">Páginas</div><div class="value">${book.paginas || '-'}</div></div>
+          <div class="meta-item"><div class="label">Prazo de empréstimo</div><div class="value">${dias} dias</div></div>
+          <div class="meta-item"><div class="label">Disponíveis</div><div class="value">${book.available} de ${book.total}</div></div>
         </div>
         <div class="detail-synopsis">
           <h3>Sinopse</h3>
-          <p>${book.title} esta cadastrado no acervo da biblioteca com autoria de ${book.author}. Use a disponibilidade abaixo para solicitar a reserva quando houver exemplar livre.</p>
+          <p>${book.title} está cadastrado no acervo da biblioteca com autoria de ${book.author}. Use a disponibilidade abaixo para solicitar a reserva quando houver exemplar livre.</p>
         </div>
         <div class="avail-bar">
           <div class="avail-header">
@@ -818,7 +848,7 @@ function renderBookDetail() {
         <div class="detail-actions">
           ${avail
             ? `<button class="btn btn-primary btn-lg" id="btn-detail-borrow">${icon('book')} Solicitar Reserva</button>`
-            : `<button class="btn btn-secondary btn-lg" disabled>${icon('clock')} Indisponivel no momento</button>`
+            : `<button class="btn btn-secondary btn-lg" disabled>${icon('clock')} Indisponível no momento</button>`
           }
           <button class="btn btn-ghost btn-lg" id="btn-detail-back">${icon('arrowLeft')} Voltar</button>
         </div>
@@ -890,7 +920,7 @@ function renderMyLoans() {
                   <p style="font-size:12px;color:var(--slate-500)">${book.author}</p>
                   <div class="loan-dates">
                     ${l.dataEmprestimo ? `<span>Retirada: ${l.dataEmprestimo}</span>` : l.borrowDate && l.borrowDate !== '-' ? `<span>Retirada: ${l.borrowDate}</span>` : ''}
-                    ${l.dataPrevista ? `<span class="${isOverdue ? 'overdue-date' : ''}">Previsto: ${l.dataPrevista}</span>` : ''}
+                    ${l.dataPrevista ? `<span class="${isOverdue ? 'overdue-date' : ''}">Prevista: ${l.dataPrevista}</span>` : ''}
                   </div>
                 </div>
                 ${l._computedStatus === 'overdue' || l._computedStatus === 'active' ? `<button class="btn btn-sm btn-success" data-return-reservation="${l.id}">${icon('check')} Devolver</button>` : ''}
@@ -901,9 +931,9 @@ function renderMyLoans() {
       </div>
     </section>
     <section>
-      <div class="section-header"><h2>Historico</h2></div>
+      <div class="section-header"><h2>Histórico</h2></div>
       <div style="display:flex;flex-direction:column;gap:12px">
-        ${history.length === 0 ? '<p style="text-align:center;color:var(--slate-400);padding:24px">Nenhum historico</p>' :
+        ${history.length === 0 ? '<p style="text-align:center;color:var(--slate-400);padding:24px">Nenhum histórico</p>' :
           history.map(l => {
             const book = findBook(l.bookId);
             return `
@@ -955,7 +985,7 @@ function renderProfile() {
       <div class="profile-hero">
         <div class="profile-avatar">${u?.nome?.[0] || 'A'}</div>
         <div>
-          <h2>${u?.nome || 'Usuario'}</h2>
+          <h2>${u?.nome || 'Usuário'}</h2>
           <p class="course">Estudante</p>
           <p class="email">${u?.email || ''}</p>
         </div>
@@ -969,7 +999,7 @@ function renderProfile() {
         <div class="stat-card">
           <div class="stat-icon purple">${icon('clipboard')}</div>
           <div class="stat-value">${myLoans.length}</div>
-          <div class="stat-label">Historico</div>
+          <div class="stat-label">Histórico</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon yellow">${icon('alertCircle')}</div>
@@ -978,7 +1008,7 @@ function renderProfile() {
         </div>
       </div>
       <div class="card profile-info">
-        <h3>Informacoes Pessoais</h3>
+        <h3>Informações Pessoais</h3>
         <div class="profile-field"><span class="label">Nome</span><span class="value">${u?.nome || '-'}</span></div>
         <div class="profile-field"><span class="label">E-mail</span><span class="value">${u?.email || '-'}</span></div>
         <div class="profile-field"><span class="label">ID</span><span class="value">${u?.id || '-'}</span></div>
@@ -1009,16 +1039,16 @@ function renderAdminDashboard() {
   return `
     <div class="admin-hero">
       <h2>Painel Administrativo</h2>
-      <p>Gestao completa do acervo e usuarios</p>
+      <p>Gestão completa do acervo e usuários</p>
       <div class="hero-actions">
         <button class="btn btn-yellow btn-sm" data-nav="admin-books">${icon('plus')} Novo Livro</button>
-        <button class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.7)" data-nav="admin-users">${icon('users')} Usuarios</button>
+        <button class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.7)" data-nav="admin-users">${icon('users')} Usuários</button>
       </div>
     </div>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-icon blue">${icon('book')}</div><div class="stat-value">${books.length}</div><div class="stat-label">Total de Livros</div></div>
       <div class="stat-card"><div class="stat-icon yellow">${icon('bookCopy')}</div><div class="stat-value">${books.filter(b => b.available === 0).length}</div><div class="stat-label">Livros Emprestados</div></div>
-      <div class="stat-card"><div class="stat-icon green">${icon('users')}</div><div class="stat-value">${state.users.length}</div><div class="stat-label">Usuarios Cadastrados</div></div>
+      <div class="stat-card"><div class="stat-icon green">${icon('users')}</div><div class="stat-value">${state.users.length}</div><div class="stat-label">Usuários Cadastrados</div></div>
       <div class="stat-card"><div class="stat-icon purple">${icon('trending')}</div><div class="stat-value">${activeLoans.length}</div><div class="stat-label">Reservas Ativas</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -1031,7 +1061,7 @@ function renderAdminDashboard() {
           ${recentLoans.map(l => {
             const computed = computeStatus(l);
             const book = state.books.find(b => b.id === l.bookId) || { title: 'Livro', author: '?' };
-            const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuario' };
+              const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuário' };
             const dateLabel = l.dataEmprestimo || l.borrowDate || '-';
             return `
               <div class="recent-item">
@@ -1048,19 +1078,19 @@ function renderAdminDashboard() {
       </div>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="card" style="padding:20px">
-          <h3 style="font-size:16px;font-weight:600;margin-bottom:12px">Acoes Rapidas</h3>
+          <h3 style="font-size:16px;font-weight:600;margin-bottom:12px">Ações Rápidas</h3>
           <div class="quick-actions">
             <button class="btn btn-primary btn-sm" data-nav="admin-books" style="justify-content:flex-start">${icon('plus')} Cadastrar Livro</button>
-            <button class="btn btn-secondary btn-sm" data-nav="admin-users" style="justify-content:flex-start">${icon('users')} Ver Usuarios</button>
+            <button class="btn btn-secondary btn-sm" data-nav="admin-users" style="justify-content:flex-start">${icon('users')} Ver Usuários</button>
             <button class="btn btn-secondary btn-sm" data-nav="admin-loans" style="justify-content:flex-start">${icon('clipboard')} Reservas</button>
-            <button class="btn btn-secondary btn-sm" data-nav="admin-dashboard" style="justify-content:flex-start">${icon('trending')} Relatorios</button>
+            <button class="btn btn-secondary btn-sm" data-nav="admin-dashboard" style="justify-content:flex-start">${icon('trending')} Relatórios</button>
           </div>
         </div>
         <div class="alert-card">
           <div class="alert-icon">${icon('alertCircle')}</div>
           <div>
             <div class="alert-title">${overdueLoans.length || 0} reservas em atraso</div>
-            <div class="alert-desc">Devolucao automatica disponivel na tela de reservas.</div>
+            <div class="alert-desc">Devolução automática disponível na tela de reservas.</div>
             <a href="#" class="alert-link" data-nav="admin-loans">Ver detalhes</a>
           </div>
         </div>
@@ -1091,7 +1121,7 @@ function renderAdminBookRow(b) {
       <td style="color:var(--slate-500)">${b.author}</td>
       <td style="color:var(--slate-500)">${b.paginas || '-'}</td>
       <td>${b.available}/${b.total}</td>
-      <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponivel' : 'Esgotado'}</span></td>
+      <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponível' : 'Esgotado'}</span></td>
       <td>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm btn-secondary" data-edit-book="${b.id}">${icon('edit')} Editar</button>
@@ -1108,16 +1138,16 @@ function renderBookForm(book) {
     <div class="form-card">
       <h3>${isEdit ? 'Editar Livro' : 'Cadastrar Novo Livro'}</h3>
       <div class="form-grid">
-        <div class="input-group"><label>Titulo</label><div class="input-wrapper"><input type="text" id="form-title" placeholder="Titulo do livro" value="${book?.title || ''}" /></div></div>
+        <div class="input-group"><label>Título</label><div class="input-wrapper"><input type="text" id="form-title" placeholder="Título do livro" value="${book?.title || ''}" /></div></div>
         <div class="input-group"><label>Autor</label><div class="input-wrapper"><input type="text" id="form-author" placeholder="Nome do autor" value="${book?.author || ''}" /></div></div>
-        <div class="input-group"><label>Paginas</label><div class="input-wrapper"><input type="number" id="form-paginas" placeholder="Quantidade de paginas" value="${book?.paginas || ''}" min="0" /></div></div>
+        <div class="input-group"><label>Páginas</label><div class="input-wrapper"><input type="number" id="form-paginas" placeholder="Quantidade de páginas" value="${book?.paginas || ''}" min="0" /></div></div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:var(--slate-600)">
         <input type="checkbox" id="form-available" ${!book || book.available > 0 ? 'checked' : ''} />
-        Livro disponivel
+        Livro disponível
       </label>
       <div class="form-actions">
-        <button class="btn btn-primary" id="btn-save-book">${isEdit ? 'Salvar Alteracoes' : 'Salvar Livro'}</button>
+        <button class="btn btn-primary" id="btn-save-book">${isEdit ? 'Salvar Alterações' : 'Salvar Livro'}</button>
         <button class="btn btn-ghost" id="btn-cancel-book">Cancelar</button>
       </div>
     </div>
@@ -1146,10 +1176,10 @@ function renderAdminBooks() {
             <tr>
               <th>Livro</th>
               <th>Autor</th>
-              <th>Paginas</th>
-              <th>Disponiveis</th>
+              <th>Páginas</th>
+              <th>Disponíveis</th>
               <th>Status</th>
-              <th>Acoes</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody id="books-tbody">
@@ -1179,7 +1209,7 @@ function bindAdminBooks() {
       const a = autor.value.trim();
       const p = parseInt(paginas.value, 10) || 0;
       const disp = document.getElementById('form-available')?.checked ?? true;
-      if (!t || !a) { showError('Preencha titulo e autor'); return; }
+          if (!t || !a) { showError('Preencha título e autor'); return; }
       try {
         if (book) {
           await updateBook(book.id, { titulo: t, autor: a, paginas: p, disponivel: disp });
@@ -1228,7 +1258,7 @@ function bindAdminBooks() {
       const id = parseInt(deleteBtn.dataset.delete, 10);
       if (Number.isNaN(id)) { showError('Erro interno'); return; }
       await deleteBook(id);
-      showToast('Livro excluido!');
+      showToast('Livro excluído!');
       await loadData();
       renderContent();
     } catch (err) { showError(err.message); }
@@ -1261,14 +1291,14 @@ function renderUserForm(user) {
   const isEdit = Boolean(user);
   return `
     <div class="form-card" style="margin-bottom:20px">
-      <h3>${isEdit ? 'Editar Usuario' : 'Cadastrar Usuario'}</h3>
+      <h3>${isEdit ? 'Editar Usuário' : 'Cadastrar Usuário'}</h3>
       <div class="form-grid">
         <div class="input-group"><label>Nome</label><div class="input-wrapper"><input type="text" id="user-name" placeholder="Nome completo" value="${user?.nome || ''}" /></div></div>
         <div class="input-group"><label>E-mail</label><div class="input-wrapper"><input type="email" id="user-email" placeholder="email@exemplo.com" value="${user?.email || ''}" /></div></div>
-        <div class="input-group"><label>${isEdit ? 'Nova senha opcional' : 'Senha'}</label><div class="input-wrapper"><input type="password" id="user-pass" placeholder="Minimo de 6 caracteres" /></div></div>
+        <div class="input-group"><label>${isEdit ? 'Nova senha opcional' : 'Senha'}</label><div class="input-wrapper"><input type="password" id="user-pass" placeholder="Mínimo de 6 caracteres" /></div></div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-primary" id="btn-save-user">${isEdit ? 'Salvar Alteracoes' : 'Salvar Usuario'}</button>
+        <button class="btn btn-primary" id="btn-save-user">${isEdit ? 'Salvar Alterações' : 'Salvar Usuário'}</button>
         <button class="btn btn-ghost" id="btn-cancel-user">Cancelar</button>
       </div>
     </div>
@@ -1285,19 +1315,19 @@ function renderAdminUsers() {
       <div class="stat-card"><div class="stat-icon green">${icon('alertCircle')}</div><div class="stat-value">${state.loans.filter(l => computeStatus(l) === 'overdue').length}</div><div class="stat-label">Em atraso</div></div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-      <button class="btn btn-primary" id="btn-new-user">${icon('plus')} Novo Usuario</button>
+      <button class="btn btn-primary" id="btn-new-user">${icon('plus')} Novo Usuário</button>
     </div>
     <div id="user-form-container"></div>
     <div class="card" style="overflow:hidden">
       <div style="padding:16px 20px;border-bottom:1px solid var(--slate-50)">
-        <h3 style="font-size:16px;font-weight:600">Usuarios Cadastrados</h3>
+        <h3 style="font-size:16px;font-weight:600">Usuários Cadastrados</h3>
       </div>
       <div class="table-container">
         <table>
-          <thead><tr><th>Usuario</th><th>E-mail</th><th>Acoes</th></tr></thead>
+          <thead><tr><th>Usuário</th><th>E-mail</th><th>Ações</th></tr></thead>
           <tbody id="users-tbody">
             ${state.users.map(renderAdminUserRow).join('')}
-            ${state.users.length === 0 ? '<tr><td colspan="3" style="text-align:center;color:var(--slate-400);padding:32px">Nenhum usuario encontrado</td></tr>' : ''}
+            ${state.users.length === 0 ? '<tr><td colspan="3" style="text-align:center;color:var(--slate-400);padding:32px">Nenhum usuário encontrado</td></tr>' : ''}
           </tbody>
         </table>
       </div>
@@ -1325,7 +1355,7 @@ function bindAdminUsers() {
       if (!n || !e) { showError('Preencha nome e e-mail'); return; }
       if (!user && !s) { showError('Informe uma senha'); return; }
       if (s && s.length < 6) { showError('A senha deve ter pelo menos 6 caracteres'); return; }
-      if (!e.includes('@')) { showError('Digite um e-mail valido'); return; }
+      if (!e.includes('@')) { showError('Digite um e-mail válido'); return; }
 
       try {
         const payload = { nome: n, email: e };
@@ -1333,10 +1363,10 @@ function bindAdminUsers() {
 
         if (user) {
           await updateUser(user.id_usuario, payload);
-          showToast('Usuario atualizado!');
+          showToast('Usuário atualizado!');
         } else {
           await createUser(payload);
-          showToast('Usuario cadastrado!');
+          showToast('Usuário cadastrado!');
         }
 
         await loadData();
@@ -1363,12 +1393,12 @@ function bindAdminUsers() {
     }
 
     if (!deleteBtn) return;
-    if (!confirm('Excluir este usuario e suas reservas?')) return;
+    if (!confirm('Excluir este usuário e suas reservas?')) return;
     try {
       const id = parseInt(deleteBtn.dataset.deleteUser, 10);
       if (Number.isNaN(id)) { showError('Erro interno'); return; }
       await deleteUser(id);
-      showToast('Usuario excluido!');
+      showToast('Usuário excluído!');
       await loadData();
       renderContent();
     } catch (err) { showError(err.message); }
@@ -1394,11 +1424,11 @@ function renderAdminLoans() {
       </div>
       <div class="table-container">
         <table>
-          <thead><tr><th>Livro</th><th>Usuario</th><th>Emprestimo</th><th>Previsto</th><th>Devolucao</th><th>Status</th><th>Acoes</th></tr></thead>
+          <thead><tr><th>Livro</th><th>Usuário</th><th>Empréstimo</th><th>Previsto</th><th>Devolução</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="loans-tbody">
             ${loans.map(l => {
               const book = state.books.find(b => b.id === l.bookId) || { title: 'Livro', author: '?' };
-              const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuario' };
+            const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuário' };
               const isOverdue = l._computedStatus === 'overdue';
               const canReturn = l._computedStatus === 'active' || l._computedStatus === 'overdue';
               return `
@@ -1440,7 +1470,7 @@ function bindAdminLoans() {
         const id = parseInt(returnBtn.dataset.devolve, 10);
         if (Number.isNaN(id)) { showError('Erro interno'); return; }
         await updateReservation(id, 'DEVOLVIDO');
-        showToast('Devolucao registrada!');
+        showToast('Devolução registrada!');
       } else if (cancelBtn) {
         if (!confirm('Cancelar esta reserva?')) return;
         const id = parseInt(cancelBtn.dataset.cancelLoan, 10);
@@ -1452,7 +1482,7 @@ function bindAdminLoans() {
         const id = parseInt(deleteBtn.dataset.deleteLoan, 10);
         if (Number.isNaN(id)) { showError('Erro interno'); return; }
         await deleteReservation(id);
-        showToast('Reserva excluida!');
+        showToast('Reserva excluída!');
       } else {
         return;
       }
@@ -1467,9 +1497,22 @@ function bindAdminLoans() {
 
 // ─── Init ─────────────────────────────────────────────────────────
 
-const initPath = window.location.pathname;
-const initScreen = routes[initPath] || 'login';
-state.screen = initScreen;
-const destPath = screenToPath[initScreen] || '/login';
-history.replaceState({ screen: initScreen }, '', destPath);
-render();
+function init() {
+  const initPath = window.location.pathname;
+  const initScreen = routes[initPath] || 'login';
+
+  if (savedSession) {
+    const targetScreen = state.isAdmin ? 'admin-dashboard' : 'dashboard';
+    state.screen = targetScreen;
+    history.replaceState({ screen: targetScreen }, '', screenToPath[targetScreen] || '/');
+    render();
+    loadData();
+  } else {
+    state.screen = initScreen;
+    const destPath = screenToPath[initScreen] || '/login';
+    history.replaceState({ screen: initScreen }, '', destPath);
+    render();
+  }
+}
+
+init();
