@@ -1,11 +1,22 @@
 const API = 'http://localhost:3031';
 const REQUEST_TIMEOUT_MS = 8000;
 
+let authToken = null;
+
+function setAuthToken(token) {
+  authToken = token;
+}
+
+function clearAuthToken() {
+  authToken = null;
+}
+
 async function apiReq(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const headers = {
     'Content-Type': 'application/json',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(options.headers || {}),
   };
 
