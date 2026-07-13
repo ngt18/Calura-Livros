@@ -121,4 +121,5 @@ INSERT INTO usuarios (nome, email, senha_hash, senha_salt) VALUES
   ('Luiza Alves', 'luiza@email.com', 'f7b8cd73376fb42a543e1268d6b1cbae801401593b7925d4b0b5ba1a6f6469279d6d686dc0fb011aed5d0ef614fabfa5f3d46d2bac2e03e288058beb1d44bf79', '5d9457d4e55f4ba30a2e3f3348b75621'),
   ('Felipe Rocha', 'felipe@email.com', 'cb8a987d205b638b14b8ca52ca0159e9fd7bc25423746a5fc168918d5bc75405649e15619c22d1bc35825efdb2fd2f45f8317398dafd9f672702945f5383073f', 'd5d8d4a5c485076057fb8c638c879dfe'),
   ('Beatriz Campos', 'beatriz@email.com', 'eef5d90483f0edfeda1c9d5543a983528537936090797039f9fd86c44794e1287060abb0d3db87d2faa0c40de8cf99adf734c4e3b6365b096c9170afeb9cf122', 'e704d2269ee1482c6b7663c375740c16'),
-  ('Lucas Barbosa', 'lucas@email.com', '8c1274c716f487b24597f59db6c6d807e541087a0ea8192f89a3a5dbc35062e33062c91766948e1bea6a6ae9db0a8afdf639cff54c27347f424d843f5ba59d3c', 'e6569408b8553f65b6685617fc7e95ae');
+  ('Lucas Barbosa', 'lucas@email.com', '8c1274c716f487b24597f59db6c6d807e541087a0ea8192f89a3a5dbc35062e33062c91766948e1bea6a6ae9db0a8afdf639cff54c27347f424d843f5ba59d3c', 'e6569408b8553f65b6685617fc7e95ae'),
+  ('Administrador', 'admin@caluralivros.com', '', '');

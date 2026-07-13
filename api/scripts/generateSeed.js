@@ -1,9 +1,7 @@
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const fs = require("fs");
-
-const OPEN_LIBRARY_SEARCH = "https://openlibrary.org/search.json?q=";
-const OPEN_LIBRARY_COVER = "https://covers.openlibrary.org/b/id/";
+const { fetchCoverUrl } = require("../services/openLibrary");
 
 const books = [
   ["Dom Quixote", "Miguel de Cervantes", 992],
@@ -110,31 +108,6 @@ const books = [
 
 const done = new Set();
 
-function buildQuery(titulo, autor) {
-  const q = `${titulo} ${autor}`;
-  return OPEN_LIBRARY_SEARCH + encodeURIComponent(q);
-}
-
-async function fetchCover(titulo, autor) {
-  const query = buildQuery(titulo, autor);
-  try {
-    const resp = await fetch(query);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    if (!data.docs || data.docs.length === 0) return null;
-    const first = data.docs[0];
-    if (first.cover_i) {
-      return `${OPEN_LIBRARY_COVER}${first.cover_i}-L.jpg`;
-    }
-    if (first.cover_edition_key) {
-      return `${OPEN_LIBRARY_COVER}${first.cover_edition_key}-L.jpg`;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function escapeSql(val) {
   return val.replace(/'/g, "''");
 }
@@ -160,7 +133,7 @@ async function main() {
     idx++;
 
     process.stdout.write(`[${idx}/100] ${titulo}... `);
-    const cover = await fetchCover(titulo, autor);
+    const cover = await fetchCoverUrl(titulo, autor);
     const img = cover ? `'${cover}'` : "NULL";
     const linha = `('${escapeSql(titulo)}', '${escapeSql(autor)}', ${paginas}, TRUE, ${img})`;
 
@@ -191,7 +164,8 @@ async function main() {
   lines.push("  ('Luiza Alves', 'luiza@email.com', '', ''),");
   lines.push("  ('Felipe Rocha', 'felipe@email.com', '', ''),");
   lines.push("  ('Beatriz Campos', 'beatriz@email.com', '', ''),");
-  lines.push("  ('Lucas Barbosa', 'lucas@email.com', '', '');");
+  lines.push("  ('Lucas Barbosa', 'lucas@email.com', '', ''),");
+  lines.push("  ('Administrador', 'admin@caluralivros.com', '', '');");
 
   const output = lines.join("\n");
 

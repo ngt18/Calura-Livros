@@ -1,5 +1,5 @@
 const CATEGORIES = ['Todos', 'Fantasia', 'Literatura Brasileira', 'Tecnologia', 'História', 'Ficção Científica', 'Infantojuvenil', 'Autoajuda'];
-const COVER_DEFAULT = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=420&fit=crop&auto=format';
+const COVER_DEFAULT = 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=300&h=420&fit=crop&auto=format';
 const STATUS_MAP = {
   ATIVA: 'active',
   ATRASADA: 'overdue',
@@ -19,6 +19,7 @@ function saveSession() {
   localStorage.setItem(SESSION_KEY, JSON.stringify({
     user: state.user,
     isAdmin: state.isAdmin,
+    token: state.token,
   }));
 }
 
@@ -30,7 +31,9 @@ function restoreSession() {
   const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    const session = JSON.parse(raw);
+    if (session.token) setAuthToken(session.token);
+    return session;
   } catch {
     clearSession();
     return null;
@@ -43,6 +46,7 @@ const state = {
   screen: savedSession ? 'dashboard' : 'login',
   isAdmin: savedSession?.isAdmin || false,
   user: savedSession?.user || null,
+  token: savedSession?.token || null,
   books: [],
   loans: [],
   users: [],
@@ -70,6 +74,12 @@ const screenToPath = Object.fromEntries(
 );
 
 function navigate(screen) {
+  if (screen.startsWith('admin-') && !state.isAdmin) {
+    state.screen = 'login';
+    history.replaceState({ screen: 'login' }, '', '/login');
+    render();
+    return;
+  }
   state.screen = screen;
   state.sidebarOpen = false;
   const path = screenToPath[screen] || '/';
@@ -81,6 +91,12 @@ window.addEventListener('popstate', () => {
   const path = window.location.pathname;
   const screen = routes[path];
   if (!screen) {
+    history.replaceState({ screen: 'login' }, '', '/login');
+    state.screen = 'login';
+    render();
+    return;
+  }
+  if (screen.startsWith('admin-') && !state.isAdmin) {
     history.replaceState({ screen: 'login' }, '', '/login');
     state.screen = 'login';
     render();
@@ -258,28 +274,25 @@ async function handleLogin(email, senha) {
     const user = await loginUser(email, senha);
     if (!user) { showError('Resposta inválida do servidor'); return; }
     state.user = { id: user.id_usuario, nome: user.nome, email: user.email };
-    state.isAdmin = false;
+    state.isAdmin = Boolean(user.is_admin);
+    state.token = user.token;
+    setAuthToken(user.token);
     saveSession();
     await loadData();
-    navigate('dashboard');
+    navigate(state.isAdmin ? 'admin-dashboard' : 'dashboard');
   } catch (e) {
     showError(e.message);
   }
 }
 
-function handleAdminLogin() {
-  state.user = { id: 999, nome: 'Admin', email: 'admin@caluralivros.com' };
-  state.isAdmin = true;
-  saveSession();
-  loadData().then(() => navigate('admin-dashboard')).catch(console.error);
-}
-
 function handleLogout() {
   state.user = null;
   state.isAdmin = false;
+  state.token = null;
   state.books = [];
   state.loans = [];
   state.users = [];
+  clearAuthToken();
   clearSession();
   navigate('login');
 }
@@ -339,8 +352,6 @@ function renderLogin() {
               </div>
             </div>
             <button class="btn btn-primary btn-lg" id="btn-login" style="width:100%">Entrar</button>
-            <div class="login-divider"><hr /><span>ou</span><hr /></div>
-            <button class="btn btn-yellow btn-lg" id="btn-admin" style="width:100%">Entrar como Administrador</button>
           </div>
           <div id="register-form" class="login-form" style="display:none">
             <div class="input-group">
@@ -413,9 +424,6 @@ function bindLogin() {
     handleLogin(e, s);
   };
 
-  const btnAdmin = document.getElementById('btn-admin');
-  if (btnAdmin) btnAdmin.onclick = handleAdminLogin;
-
   const btnRegister = document.getElementById('btn-register');
   if (btnRegister) btnRegister.onclick = async () => {
     const nome = document.getElementById('reg-name');
@@ -429,13 +437,8 @@ function bindLogin() {
     if (s.length < 6) { showError('A senha deve ter pelo menos 6 caracteres'); return; }
     if (!e.includes('@')) { showError('Digite um e-mail válido'); return; }
     try {
-      const user = await createUser({ nome: n, email: e, senha: s });
-      if (!user) { showError('Resposta inválida do servidor'); return; }
-      state.user = { id: user.id_usuario || user.id, nome: user.nome, email: user.email };
-      state.isAdmin = false;
-      saveSession();
-      await loadData();
-      navigate('dashboard');
+      await createUser({ nome: n, email: e, senha: s });
+      await handleLogin(e, s);
     } catch (err) {
       showError(err.message);
     }
@@ -495,7 +498,8 @@ function renderSidebar() {
     { icon: 'user', label: 'Perfil', screen: 'profile' },
   ];
   const adminNav = [
-    { icon: 'dashboard', label: 'Dashboard', screen: 'admin-dashboard' },
+    { icon: 'home', label: 'Catálogo', screen: 'dashboard' },
+    { icon: 'dashboard', label: 'Painel', screen: 'admin-dashboard' },
     { icon: 'book', label: 'Livros', screen: 'admin-books' },
     { icon: 'users', label: 'Usuários', screen: 'admin-users' },
     { icon: 'clipboard', label: 'Reservas', screen: 'admin-loans' },
@@ -1508,9 +1512,13 @@ function init() {
     render();
     loadData();
   } else {
-    state.screen = initScreen;
-    const destPath = screenToPath[initScreen] || '/login';
-    history.replaceState({ screen: initScreen }, '', destPath);
+    if (initScreen.startsWith('admin-') || initScreen !== 'login') {
+      state.screen = 'login';
+      history.replaceState({ screen: 'login' }, '', '/login');
+    } else {
+      state.screen = initScreen;
+      history.replaceState({ screen: initScreen }, '', '/login');
+    }
     render();
   }
 }

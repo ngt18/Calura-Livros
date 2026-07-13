@@ -7,7 +7,8 @@ CREATE TABLE usuarios (
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     senha_hash VARCHAR(255) NOT NULL,
-    senha_salt VARCHAR(64) NOT NULL
+    senha_salt VARCHAR(64) NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE livros (

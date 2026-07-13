@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { promisify } = require("util");
+const jwt = require("jsonwebtoken");
 const { pool } = require("../database/connection");
 
 const scrypt = promisify(crypto.scrypt);
@@ -11,7 +12,8 @@ function publicUser(user) {
     id_usuario: user.id_usuario,
     id: user.id_usuario,
     nome: user.nome,
-    email: user.email
+    email: user.email,
+    is_admin: Boolean(user.is_admin)
   };
 }
 
@@ -41,7 +43,7 @@ function normalizeString(value) {
 async function getUsers(req, res) {
   try {
     const [rows] = await pool.query(
-      "SELECT id_usuario, nome, email FROM usuarios ORDER BY nome"
+      "SELECT id_usuario, nome, email, is_admin FROM usuarios ORDER BY nome"
     );
     return res.status(200).json(rows);
   } catch (error) {
@@ -59,7 +61,7 @@ async function getUserById(req, res) {
 
   try {
     const [rows] = await pool.query(
-      "SELECT id_usuario, nome, email FROM usuarios WHERE id_usuario = ?",
+      "SELECT id_usuario, nome, email, is_admin FROM usuarios WHERE id_usuario = ?",
       [id]
     );
 
@@ -137,7 +139,17 @@ async function loginUser(req, res) {
       return res.status(401).json({ error: "Email ou senha invalidos" });
     }
 
-    return res.status(200).json(publicUser(rows[0]));
+    const user = rows[0];
+    const token = jwt.sign(
+      { id_usuario: user.id_usuario, email: user.email, is_admin: Boolean(user.is_admin) },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    return res.status(200).json({
+      ...publicUser(user),
+      token
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Error logging in" });
@@ -219,7 +231,7 @@ async function updateUser(req, res) {
     );
 
     const [updated] = await pool.query(
-      "SELECT id_usuario, nome, email FROM usuarios WHERE id_usuario = ?",
+      "SELECT id_usuario, nome, email, is_admin FROM usuarios WHERE id_usuario = ?",
       [id]
     );
 
