@@ -439,6 +439,9 @@ section h2 span {
   width: 100%;
   flex-shrink: 0;
 }
+.sidebar-nav button svg {
+  flex-shrink: 0;
+}
 
 .sidebar-nav button:hover {
   background: var(--slate-50);
@@ -478,6 +481,9 @@ section h2 span {
   color: var(--slate-500);
   background: none;
   width: 100%;
+  flex-shrink: 0;
+}
+.logout-btn svg {
   flex-shrink: 0;
 }
 
