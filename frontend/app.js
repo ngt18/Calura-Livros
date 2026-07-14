@@ -540,7 +540,7 @@ function renderSidebar() {
     var ativo = state.screen === item.screen ? ' active' : '';
     botoesNav +=
       '<button class="' + ativo + '" data-nav="' + item.screen + '">' +
-        icon(item.icon) + ' ' + item.label +
+        icon(item.icon) + ' <span class="nav-label">' + item.label + '</span>' +
       '</button>';
   }
 
@@ -552,7 +552,7 @@ function renderSidebar() {
       '</div>' +
       '<nav class="sidebar-nav">' + botoesNav + '</nav>' +
       '<div class="sidebar-footer">' +
-        '<button class="logout-btn" id="btn-logout">' + icon('logout') + ' Sair</button>' +
+        '<button class="logout-btn" id="btn-logout">' + icon('logout') + ' <span class="nav-label">Sair</span></button>' +
       '</div>' +
     '</aside>'
   );

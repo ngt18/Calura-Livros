@@ -341,6 +341,11 @@ section h2 span {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  margin-left: 60px;
+  transition: margin-left 0.2s;
+}
+.sidebar:hover ~ .app-main {
+  margin-left: 240px;
 }
 
 .app-content {
@@ -361,7 +366,7 @@ section h2 span {
 
 /* --- Sidebar (menu lateral) --- */
 .sidebar {
-  width: 240px;
+  width: 60px;
   background: #fff;
   border-right: 1px solid var(--slate-100);
   display: flex;
@@ -369,14 +374,23 @@ section h2 span {
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 100;
+  overflow: hidden;
+  transition: width 0.2s;
+}
+.sidebar:hover {
+  width: 240px;
 }
 
 .sidebar-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 20px;
+  padding: 16px 12px;
   border-bottom: 1px solid var(--slate-100);
+  transition: padding 0.2s;
+}
+.sidebar:hover .sidebar-logo {
+  padding: 20px;
 }
 
 .logo-icon {
@@ -395,6 +409,12 @@ section h2 span {
   font-weight: 700;
   color: var(--slate-800);
   font-family: 'Poppins', sans-serif;
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+}
+.sidebar:hover .logo-text {
+  opacity: 1;
 }
 
 .logo-text span {
@@ -424,6 +444,15 @@ section h2 span {
 
 .sidebar-nav button:hover {
   background: var(--slate-50);
+}
+
+.nav-label {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+}
+.sidebar:hover .nav-label {
+  opacity: 1;
 }
 
 .sidebar-nav button.active {
@@ -462,7 +491,6 @@ section h2 span {
   padding: 14px 24px;
   background: #fff;
   border-bottom: 1px solid var(--slate-100);
-  margin-left: 240px; /* espaço da sidebar fixa */
 }
 
 .topbar-left {
@@ -801,15 +829,29 @@ section h2 span {
 /* --- Responsivo (celular/tablet) --- */
 @media (max-width: 768px) {
   .sidebar {
+    width: 240px;
     transform: translateX(-100%);
     transition: transform 0.2s;
+    overflow: visible;
   }
 
   .sidebar.open {
     transform: translateX(0);
   }
 
-  .topbar {
+  .sidebar:hover {
+    width: 240px;
+  }
+
+  .sidebar:hover ~ .app-main {
+    margin-left: 0;
+  }
+
+  .logo-text, .nav-label {
+    opacity: 1;
+  }
+
+  .app-main {
     margin-left: 0;
   }
 
