@@ -185,7 +185,8 @@ async function createReservation(req, res) {
 
 async function updateReservation(req, res) {
   const id = parseInt(req.params.id, 10);
-  const status = normalizeStatus(req.body.status);
+  const isAdmin = req.user && req.user.is_admin;
+  const status = req.body.status ? normalizeStatus(req.body.status) : null;
 
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: "Invalid ID" });
@@ -207,31 +208,63 @@ async function updateReservation(req, res) {
     }
 
     const reservation = existing[0];
-
     const currentStatus = reservation.status;
+    const updates = [];
+    const params = [];
+
+    if (isAdmin && req.body.data_reserva !== undefined) {
+      updates.push("data_reserva = ?");
+      params.push(req.body.data_reserva);
+    }
+
+    if (isAdmin && req.body.data_emprestimo !== undefined) {
+      updates.push("data_emprestimo = ?");
+      params.push(req.body.data_emprestimo);
+    }
+
+    if (isAdmin && req.body.data_prevista !== undefined) {
+      updates.push("data_prevista = ?");
+      params.push(req.body.data_prevista);
+    }
+
+    if (isAdmin && req.body.data_devolucao !== undefined) {
+      updates.push("data_devolucao = ?");
+      params.push(req.body.data_devolucao);
+    }
 
     if (status === 'DEVOLVIDO') {
       if (currentStatus === 'CANCELADA' || currentStatus === 'DEVOLVIDO') {
         await connection.rollback();
         return res.status(409).json({ error: "Reservation already returned or cancelled" });
       }
-      const data_devolucao = new Date().toISOString().split('T')[0];
-      await connection.query(
-        "UPDATE reservas SET status = ?, data_devolucao = ? WHERE id_reserva = ?",
-        [status, data_devolucao, id]
-      );
+      updates.push("status = ?", "data_devolucao = ?");
+      params.push('DEVOLVIDO', new Date().toISOString().split('T')[0]);
     } else if (status === 'CANCELADA') {
       if (currentStatus === 'DEVOLVIDO' || currentStatus === 'CANCELADA') {
         await connection.rollback();
         return res.status(409).json({ error: "Reservation already returned or cancelled" });
       }
-      await connection.query(
-        "UPDATE reservas SET status = ? WHERE id_reserva = ?",
-        [status, id]
-      );
-    } else {
-      return res.status(409).json({ error: "Invalid status transition" });
+      updates.push("status = ?");
+      params.push('CANCELADA');
+    } else if (status === 'ATRASADA') {
+      if (currentStatus !== 'ATIVA') {
+        await connection.rollback();
+        return res.status(409).json({ error: "Only active reservations can be marked as overdue" });
+      }
+      updates.push("status = ?");
+      params.push('ATRASADA');
     }
+
+    if (updates.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    params.push(id);
+    await connection.query(
+      `UPDATE reservas SET ${updates.join(", ")} WHERE id_reserva = ?`,
+      params
+    );
 
     await syncBookAvailability(connection, reservation.id_livro);
     await connection.commit();

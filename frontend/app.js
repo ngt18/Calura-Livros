@@ -162,6 +162,13 @@ function formatDate(value) {
   return String(value).split('T')[0];
 }
 
+function displayDate(value) {
+  if (!value) return '-';
+  const parts = String(value).split('T')[0].split('-');
+  if (parts.length !== 3) return value;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
 function todayLocal() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -506,7 +513,7 @@ function renderLayout() {
           <div class="topbar-right">
             <button class="topbar-bell">
               ${icon('bell')}
-              <span class="dot"></span>
+              ${state.loans.filter(l => l.status === 'active' || l.status === 'overdue').length > 0 ? '<span class="dot"></span>' : ''}
             </button>
             <div class="topbar-user">
               <div class="topbar-avatar">${state.user?.nome?.[0] || 'A'}</div>
@@ -970,8 +977,8 @@ function renderMyLoans() {
                   <h3 style="font-size:14px;font-weight:600;color:var(--slate-800);margin-top:4px">${book.title}</h3>
                   <p style="font-size:12px;color:var(--slate-500)">${book.author}</p>
                   <div class="loan-dates">
-                    ${l.dataEmprestimo ? `<span>Retirada: ${l.dataEmprestimo}</span>` : l.borrowDate && l.borrowDate !== '-' ? `<span>Retirada: ${l.borrowDate}</span>` : ''}
-                    ${l.dataPrevista ? `<span class="${isOverdue ? 'overdue-date' : ''}">Prevista: ${l.dataPrevista}</span>` : ''}
+                    ${l.dataEmprestimo ? `<span>Retirada: ${displayDate(l.dataEmprestimo)}</span>` : l.borrowDate && l.borrowDate !== '-' ? `<span>Retirada: ${displayDate(l.borrowDate)}</span>` : ''}
+                    ${l.dataPrevista ? `<span class="${isOverdue ? 'overdue-date' : ''}">Prevista: ${displayDate(l.dataPrevista)}</span>` : ''}
                   </div>
                 </div>
                 ${l._computedStatus === 'overdue' || l._computedStatus === 'active' ? `<button class="btn btn-sm btn-success" data-return-reservation="${l.id}">${icon('check')} Devolver</button>` : ''}
@@ -993,8 +1000,8 @@ function renderMyLoans() {
                 <div class="loan-info">
                   ${statusBadge(l._computedStatus)}
                   <h3 style="font-size:14px;font-weight:600;color:var(--slate-700);margin-top:4px">${book.title}</h3>
-                  <p style="font-size:12px;color:var(--slate-400)">${l.borrowDate}</p>
-                  ${l.dataDevolucao ? `<p style="font-size:12px;color:var(--slate-400)">Devolvido: ${l.dataDevolucao}</p>` : ''}
+                  <p style="font-size:12px;color:var(--slate-400)">${displayDate(l.borrowDate)}</p>
+                  ${l.dataDevolucao ? `<p style="font-size:12px;color:var(--slate-400)">Devolvido: ${displayDate(l.dataDevolucao)}</p>` : ''}
                 </div>
               </div>
             `;
@@ -1114,7 +1121,7 @@ function renderAdminDashboard() {
             const computed = computeStatus(l);
             const book = state.books.find(b => b.id === l.bookId) || { title: 'Livro', author: '?' };
               const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuário' };
-            const dateLabel = l.dataEmprestimo || l.borrowDate || '-';
+            const dateLabel = displayDate(l.dataEmprestimo || l.borrowDate);
             return `
               <div class="recent-item">
                 <div class="recent-avatar">${user.nome[0]}</div>
@@ -1122,7 +1129,7 @@ function renderAdminDashboard() {
                   <div class="name">${user.nome}</div>
                   <div class="detail">${book.title} - ${dateLabel}</div>
                 </div>
-                <span class="badge ${computed === 'active' ? 'badge-blue' : 'badge-red'}">${computed === 'active' ? 'Ativo' : 'Atrasado'}</span>
+                ${statusBadge(computed)}
               </div>
             `;
           }).join('') || '<p style="text-align:center;color:var(--slate-400);padding:16px">Nenhuma reserva</p>'}
@@ -1459,6 +1466,57 @@ function bindAdminUsers() {
   });
 }
 
+function renderEditLoanModal(loan) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:420px;text-align:left">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--slate-800)">Editar Datas da Reserva</h3>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="input-group">
+          <label>Data do Empréstimo</label>
+          <div class="input-wrapper">
+            <input type="date" id="edit-data-emprestimo" value="${loan.dataEmprestimo || ''}" />
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Data Prevista</label>
+          <div class="input-wrapper">
+            <input type="date" id="edit-data-prevista" value="${loan.dataPrevista || ''}" />
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Data de Devolução</label>
+          <div class="input-wrapper">
+            <input type="date" id="edit-data-devolucao" value="${loan.dataDevolucao || ''}" />
+          </div>
+        </div>
+      </div>
+      <div class="confirm-actions" style="margin-top:20px">
+        <button class="btn btn-primary" id="edit-save-loan">Salvar</button>
+        <button class="btn btn-ghost" id="edit-cancel-loan">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  return new Promise((resolve) => {
+    document.getElementById('edit-save-loan').onclick = async () => {
+      const payload = {};
+      const empVal = document.getElementById('edit-data-emprestimo').value;
+      const prevVal = document.getElementById('edit-data-prevista').value;
+      const devVal = document.getElementById('edit-data-devolucao').value;
+      if (empVal) payload.data_emprestimo = empVal;
+      if (prevVal) payload.data_prevista = prevVal;
+      if (devVal) payload.data_devolucao = devVal;
+      overlay.remove();
+      resolve(Object.keys(payload).length > 0 ? payload : null);
+    };
+    document.getElementById('edit-cancel-loan').onclick = () => { overlay.remove(); resolve(null); };
+    overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(null); } };
+  });
+}
+
 // ─── Admin Loans ──────────────────────────────────────────────────
 
 function renderAdminLoans() {
@@ -1485,17 +1543,20 @@ function renderAdminLoans() {
             const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuário' };
               const isOverdue = l._computedStatus === 'overdue';
               const canReturn = l._computedStatus === 'active' || l._computedStatus === 'overdue';
+              const canMarkOverdue = l._computedStatus === 'active';
               return `
                 <tr>
                   <td><span style="font-size:14px;font-weight:500;color:var(--slate-700)">${book.title}</span> <span style="font-size:12px;color:var(--slate-400);margin-left:6px">${book.author}</span></td>
                   <td style="color:var(--slate-500)">${user.nome}</td>
-                  <td style="color:var(--slate-500)">${l.dataEmprestimo || l.borrowDate || '-'}</td>
-                  <td style="color:${isOverdue ? 'var(--red-600)' : 'var(--slate-500)'};font-weight:${isOverdue ? '500' : 'normal'}">${l.dataPrevista || '-'}</td>
-                  <td style="color:var(--slate-500)">${l.dataDevolucao || '-'}</td>
+                  <td style="color:var(--slate-500)">${displayDate(l.dataEmprestimo || l.borrowDate)}</td>
+                  <td style="color:${isOverdue ? 'var(--red-600)' : 'var(--slate-500)'};font-weight:${isOverdue ? '500' : 'normal'}">${displayDate(l.dataPrevista)}</td>
+                  <td style="color:var(--slate-500)">${displayDate(l.dataDevolucao)}</td>
                   <td>${statusBadge(l._computedStatus)}</td>
                   <td>
                     <div style="display:flex;gap:8px;flex-wrap:wrap">
                       ${canReturn ? `<button class="btn btn-sm btn-success" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
+                      ${canMarkOverdue ? `<button class="btn btn-sm btn-warning" data-overdue="${l.id}">${icon('alertCircle')} Atrasado</button>` : ''}
+                      <button class="btn btn-sm btn-secondary" data-edit-loan="${l.id}">${icon('edit')} Datas</button>
                       ${l._computedStatus === 'active' || l._computedStatus === 'overdue' ? `<button class="btn btn-sm btn-warning" data-cancel-loan="${l.id}">${icon('x')} Cancelar</button>` : ''}
                       <button class="btn btn-sm btn-danger" data-delete-loan="${l.id}">${icon('trash')}</button>
                     </div>
@@ -1518,6 +1579,8 @@ function bindAdminLoans() {
     const returnBtn = e.target.closest('[data-devolve]');
     const cancelBtn = e.target.closest('[data-cancel-loan]');
     const deleteBtn = e.target.closest('[data-delete-loan]');
+    const editBtn = e.target.closest('[data-edit-loan]');
+    const overdueBtn = e.target.closest('[data-overdue]');
 
     try {
       if (returnBtn) {
@@ -1539,6 +1602,22 @@ function bindAdminLoans() {
         if (Number.isNaN(id)) { showError('Erro interno'); return; }
         await deleteReservation(id);
         showToast('Reserva excluída!');
+      } else if (editBtn) {
+        const id = parseInt(editBtn.dataset.editLoan, 10);
+        if (Number.isNaN(id)) { showError('Erro interno'); return; }
+        const loan = state.loans.find(l => l.id === id);
+        if (!loan) { showError('Reserva não encontrada'); return; }
+        const dates = await renderEditLoanModal(loan);
+        if (!dates) return;
+        await updateReservationDates(id, dates);
+        showToast('Datas atualizadas!');
+      } else if (overdueBtn) {
+        const okOverdue = await showConfirmModal('Marcar esta reserva como ATRASADA?');
+        if (!okOverdue) return;
+        const id = parseInt(overdueBtn.dataset.overdue, 10);
+        if (Number.isNaN(id)) { showError('Erro interno'); return; }
+        await updateReservation(id, 'ATRASADA');
+        showToast('Reserva marcada como atrasada!');
       } else {
         return;
       }

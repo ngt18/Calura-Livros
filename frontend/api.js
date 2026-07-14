@@ -127,6 +127,13 @@ async function updateReservation(id, status) {
   });
 }
 
+async function updateReservationDates(id, dates) {
+  return await apiReq(`/reservations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(dates),
+  });
+}
+
 async function deleteReservation(id) {
   return await apiReq(`/reservations/${id}`, { method: 'DELETE' });
 }
