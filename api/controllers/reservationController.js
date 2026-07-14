@@ -247,6 +247,10 @@ async function updateReservation(req, res) {
       updates.push("status = ?");
       params.push('CANCELADA');
     } else if (status === 'ATRASADA') {
+      if (!isAdmin) {
+        await connection.rollback();
+        return res.status(403).json({ error: "Only admins can mark reservations as overdue" });
+      }
       if (currentStatus !== 'ATIVA') {
         await connection.rollback();
         return res.status(409).json({ error: "Only active reservations can be marked as overdue" });

@@ -1555,7 +1555,7 @@ function renderAdminLoans() {
                   <td>
                     <div style="display:flex;gap:8px;flex-wrap:wrap">
                       ${canReturn ? `<button class="btn btn-sm btn-success" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
-                      ${canMarkOverdue ? `<button class="btn btn-sm btn-warning" data-overdue="${l.id}">${icon('alertCircle')} Atrasado</button>` : ''}
+                      ${canMarkOverdue ? `<button class="btn btn-sm btn-warning" data-overdue="${l.id}">${icon('alertCircle')} Marcar Atrasado</button>` : ''}
                       <button class="btn btn-sm btn-secondary" data-edit-loan="${l.id}">${icon('edit')} Datas</button>
                       ${l._computedStatus === 'active' || l._computedStatus === 'overdue' ? `<button class="btn btn-sm btn-warning" data-cancel-loan="${l.id}">${icon('x')} Cancelar</button>` : ''}
                       <button class="btn btn-sm btn-danger" data-delete-loan="${l.id}">${icon('trash')}</button>
