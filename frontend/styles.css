@@ -398,6 +398,7 @@ section h2 span {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .logo-text {
@@ -436,6 +437,7 @@ section h2 span {
   color: var(--slate-600);
   background: none;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .sidebar-nav button:hover {
