@@ -221,13 +221,14 @@ img { display: block; max-width: 100%; }
   color: white;
   padding: 12px 20px;
   border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 14px;
   font-weight: 500;
   animation: toast-in 300ms ease-out;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 .toast .toast-close {
   background: none;
@@ -237,7 +238,8 @@ img { display: block; max-width: 100%; }
   padding: 2px;
 }
 .toast .toast-close:hover { color: white; }
-.toast-error { background: var(--red-700); }
+.toast-success { background: linear-gradient(135deg, #059669, #10b981); }
+.toast-error { background: linear-gradient(135deg, #dc2626, #ef4444); }
 
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(-50%) translateY(20px); }
@@ -1075,24 +1077,67 @@ img { display: block; max-width: 100%; }
   align-items: center;
   justify-content: center;
   z-index: 9999;
+  animation: fade-in 200ms ease-out;
 }
 .confirm-modal {
   background: var(--white);
-  border-radius: 12px;
-  padding: 28px;
-  max-width: 380px;
+  border-radius: 16px;
+  max-width: 400px;
   width: 90%;
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  box-shadow: 0 25px 80px rgba(0,0,0,0.3);
+  overflow: hidden;
+  animation: modal-in 250ms ease-out;
 }
-.confirm-modal p {
-  font-size: 15px;
-  color: var(--slate-700);
-  margin-bottom: 24px;
-  line-height: 1.5;
-}
-.confirm-modal .confirm-actions {
+.confirm-modal .modal-header {
+  padding: 24px 28px 0;
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
+}
+.confirm-modal .modal-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+.modal-default .modal-icon {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+.modal-danger .modal-icon {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+.confirm-modal .modal-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--slate-800);
+}
+.confirm-modal .modal-body {
+  padding: 12px 28px 24px;
+}
+.confirm-modal .modal-body p {
+  font-size: 14px;
+  color: var(--slate-600);
+  line-height: 1.6;
+  margin: 0;
+}
+.confirm-modal .modal-footer {
+  padding: 16px 28px;
+  background: var(--slate-50);
+  border-top: 1px solid var(--slate-100);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
