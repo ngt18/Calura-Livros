@@ -342,10 +342,6 @@ section h2 span {
   flex-direction: column;
   min-width: 0;
   margin-left: 60px;
-  transition: margin-left 0.2s;
-}
-.sidebar:hover ~ .app-main {
-  margin-left: 240px;
 }
 
 .app-content {
