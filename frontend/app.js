@@ -53,6 +53,7 @@ const state = {
   selectedBook: null,
   sidebarOpen: false,
   loading: false,
+  _apiOffline: false,
 };
 
 // ─── Routes ────────────────────────────────────────────────────────
@@ -130,6 +131,30 @@ function showToast(msg, isError) {
 
 function showError(msg) {
   showToast(msg, true);
+}
+
+function showConfirmModal(msg) {
+  return new Promise((resolve) => {
+    const existing = document.querySelector('.confirm-modal-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-modal-overlay';
+    overlay.innerHTML = `
+      <div class="confirm-modal">
+        <p>${msg}</p>
+        <div class="confirm-actions">
+          <button class="btn btn-primary" id="confirm-yes">Sim</button>
+          <button class="btn btn-ghost" id="confirm-no">Cancelar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('confirm-yes').onclick = () => { overlay.remove(); resolve(true); };
+    document.getElementById('confirm-no').onclick = () => { overlay.remove(); resolve(false); };
+    overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } };
+  });
 }
 
 function formatDate(value) {
@@ -252,17 +277,24 @@ function mapReservation(r) {
 async function loadData() {
   state.loading = true;
   renderContent();
+  let hasError = false;
   try {
     const [books, reservations, users] = await Promise.all([
-      fetchBooks().catch(() => []),
-      fetchReservations().catch(() => []),
-      fetchUsers().catch(() => []),
+      fetchBooks().catch(() => { hasError = true; return []; }),
+      fetchReservations().catch(() => { hasError = true; return []; }),
+      fetchUsers().catch(() => { hasError = true; return []; }),
     ]);
     state.books = books.map(mapBook);
     state.loans = reservations.map(mapReservation);
     state.users = users;
+    if (hasError && state.books.length === 0) {
+      state._apiOffline = true;
+    } else {
+      state._apiOffline = false;
+    }
   } catch (e) {
     console.error('Erro ao carregar dados:', e);
+    state._apiOffline = true;
   } finally {
     state.loading = false;
     renderContent();
@@ -292,6 +324,8 @@ function handleLogout() {
   state.books = [];
   state.loans = [];
   state.users = [];
+  state.selectedBook = null;
+  state._apiOffline = false;
   clearAuthToken();
   clearSession();
   navigate('login');
@@ -607,6 +641,19 @@ function renderContent() {
     c.innerHTML = renderLoading();
     return;
   }
+  if (state._apiOffline) {
+    c.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px;text-align:center">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--red-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <h2 style="margin-top:16px;color:var(--slate-700)">API Indisponível</h2>
+        <p style="color:var(--slate-400);margin-top:8px">Nao foi possivel conectar ao servidor. Verifique se o backend esta rodando na porta 3031.</p>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="loadData()">Tentar novamente</button>
+      </div>
+    `;
+    return;
+  }
   switch (state.screen) {
     case 'dashboard': c.innerHTML = renderDashboard(); bindDashboard(); break;
     case 'book-detail': c.innerHTML = renderBookDetail(); bindBookDetail(); break;
@@ -731,7 +778,7 @@ function bindDashboard() {
 
   const filterBooks = () => {
     let list = state.books;
-    if (activeCategory !== 'Todos') list = list.filter(b => b.title.toLowerCase().includes(activeCategory.toLowerCase()) || b.author.toLowerCase().includes(activeCategory.toLowerCase()));
+    if (activeCategory !== 'Todos') list = list.filter(b => CATEGORIES[b.id % CATEGORIES.length] === activeCategory);
     if (searchQuery) list = list.filter(b => b.title.toLowerCase().includes(searchQuery.toLowerCase()) || b.author.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const totalFiltered = list.length;
@@ -961,7 +1008,8 @@ function renderMyLoans() {
 function bindMyLoans() {
   document.querySelectorAll('[data-return-reservation]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Devolver esta reserva?')) return;
+      const ok = await showConfirmModal('Devolver esta reserva?');
+      if (!ok) return;
       try {
         const id = parseInt(btn.dataset.returnReservation, 10);
         if (Number.isNaN(id)) { showError('Erro interno'); return; }
@@ -1257,7 +1305,8 @@ function bindAdminBooks() {
     }
 
     if (!deleteBtn) return;
-    if (!confirm('Excluir este livro e suas reservas?')) return;
+    const ok = await showConfirmModal('Excluir este livro e suas reservas?');
+    if (!ok) return;
     try {
       const id = parseInt(deleteBtn.dataset.delete, 10);
       if (Number.isNaN(id)) { showError('Erro interno'); return; }
@@ -1397,7 +1446,8 @@ function bindAdminUsers() {
     }
 
     if (!deleteBtn) return;
-    if (!confirm('Excluir este usuário e suas reservas?')) return;
+    const ok = await showConfirmModal('Excluir este usuário e suas reservas?');
+    if (!ok) return;
     try {
       const id = parseInt(deleteBtn.dataset.deleteUser, 10);
       if (Number.isNaN(id)) { showError('Erro interno'); return; }
@@ -1476,13 +1526,15 @@ function bindAdminLoans() {
         await updateReservation(id, 'DEVOLVIDO');
         showToast('Devolução registrada!');
       } else if (cancelBtn) {
-        if (!confirm('Cancelar esta reserva?')) return;
+        const okCancel = await showConfirmModal('Cancelar esta reserva?');
+        if (!okCancel) return;
         const id = parseInt(cancelBtn.dataset.cancelLoan, 10);
         if (Number.isNaN(id)) { showError('Erro interno'); return; }
         await updateReservation(id, 'CANCELADA');
         showToast('Reserva cancelada!');
       } else if (deleteBtn) {
-        if (!confirm('Excluir este registro de reserva?')) return;
+        const okDelete = await showConfirmModal('Excluir este registro de reserva?');
+        if (!okDelete) return;
         const id = parseInt(deleteBtn.dataset.deleteLoan, 10);
         if (Number.isNaN(id)) { showError('Erro interno'); return; }
         await deleteReservation(id);

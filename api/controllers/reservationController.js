@@ -42,14 +42,26 @@ function computeStatusAuto(row) {
 
 async function getReservations(req, res) {
   try {
-    const [rows] = await pool.query(
-      `SELECT r.*, u.nome AS usuario_nome, u.email AS usuario_email,
+    const isAdmin = req.user && req.user.is_admin;
+    const userId = req.user ? req.user.id_usuario : null;
+
+    let query = `
+      SELECT r.*, u.nome AS usuario_nome, u.email AS usuario_email,
               l.titulo AS livro_titulo, l.autor AS livro_autor, l.paginas
        FROM reservas r
        JOIN usuarios u ON u.id_usuario = r.id_usuario
        JOIN livros l ON l.id_livro = r.id_livro
-       ORDER BY r.id_reserva DESC`
-    );
+    `;
+    const params = [];
+
+    if (!isAdmin) {
+      query += ` WHERE r.id_usuario = ?`;
+      params.push(userId);
+    }
+
+    query += ` ORDER BY r.id_reserva DESC`;
+
+    const [rows] = await pool.query(query, params);
     const result = rows.map(r => ({
       ...r,
       status: computeStatusAuto(r)
