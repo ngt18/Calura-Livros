@@ -115,7 +115,7 @@ function showToast(msg, isError) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
   const toast = document.createElement('div');
-  toast.className = 'toast' + (isError ? ' toast-error' : '');
+  toast.className = 'toast' + (isError ? ' toast-error' : ' toast-success');
   toast.innerHTML = `
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${isError ? '#ef4444' : '#10b981'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isError
       ? '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
@@ -133,7 +133,7 @@ function showError(msg) {
   showToast(msg, true);
 }
 
-function showConfirmModal(msg) {
+function showConfirmModal(msg, isDanger = false) {
   return new Promise((resolve) => {
     const existing = document.querySelector('.confirm-modal-overlay');
     if (existing) existing.remove();
@@ -141,11 +141,17 @@ function showConfirmModal(msg) {
     const overlay = document.createElement('div');
     overlay.className = 'confirm-modal-overlay';
     overlay.innerHTML = `
-      <div class="confirm-modal">
-        <p>${msg}</p>
-        <div class="confirm-actions">
-          <button class="btn btn-primary" id="confirm-yes">Sim</button>
+      <div class="confirm-modal ${isDanger ? 'modal-danger' : 'modal-default'}">
+        <div class="modal-header">
+          <div class="modal-icon">${icon(isDanger ? 'alertCircle' : 'check')}</div>
+          <h3>${isDanger ? 'Confirmação' : 'Tem certeza?'}</h3>
+        </div>
+        <div class="modal-body">
+          <p>${msg}</p>
+        </div>
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="confirm-no">Cancelar</button>
+          <button class="btn ${isDanger ? 'btn-danger' : 'btn-primary'}" id="confirm-yes">${isDanger ? 'Sim, excluir' : 'Sim'}</button>
         </div>
       </div>
     `;
@@ -1015,7 +1021,7 @@ function renderMyLoans() {
 function bindMyLoans() {
   document.querySelectorAll('[data-return-reservation]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const ok = await showConfirmModal('Devolver esta reserva?');
+      const ok = await showConfirmModal('Devolver esta reserva?', false);
       if (!ok) return;
       try {
         const id = parseInt(btn.dataset.returnReservation, 10);
@@ -1182,10 +1188,10 @@ function renderAdminBookRow(b) {
       <td>${b.available}/${b.total}</td>
       <td><span class="badge ${b.available > 0 ? 'badge-green' : 'badge-red'}">${b.available > 0 ? 'Disponível' : 'Esgotado'}</span></td>
       <td>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm btn-secondary" data-edit-book="${b.id}">${icon('edit')} Editar</button>
-          <button class="btn btn-sm btn-danger" data-delete="${b.id}">${icon('trash')}</button>
-        </div>
+        ${renderActionDropdown([
+          { icon: 'edit', label: 'Editar', action: 'edit-book', value: b.id },
+          { icon: 'trash', label: 'Excluir', action: 'delete-book', value: b.id, danger: true },
+        ])}
       </td>
     </tr>
   `;
@@ -1296,33 +1302,6 @@ function bindAdminBooks() {
     const count = document.getElementById('book-count');
     if (count) count.textContent = `(${filtered.length})`;
   });
-
-  const tbody = document.getElementById('books-tbody');
-  if (tbody) tbody.addEventListener('click', async e => {
-    const editBtn = e.target.closest('[data-edit-book]');
-    const deleteBtn = e.target.closest('[data-delete]');
-
-    if (editBtn) {
-      const id = parseInt(editBtn.dataset.editBook, 10);
-      if (!Number.isNaN(id)) {
-        const book = state.books.find(b => b.id === id);
-        if (book) openBookForm(book);
-      }
-      return;
-    }
-
-    if (!deleteBtn) return;
-    const ok = await showConfirmModal('Excluir este livro e suas reservas?');
-    if (!ok) return;
-    try {
-      const id = parseInt(deleteBtn.dataset.delete, 10);
-      if (Number.isNaN(id)) { showError('Erro interno'); return; }
-      await deleteBook(id);
-      showToast('Livro excluído!');
-      await loadData();
-      renderContent();
-    } catch (err) { showError(err.message); }
-  });
 }
 
 // ─── Admin Users ──────────────────────────────────────────────────
@@ -1338,10 +1317,10 @@ function renderAdminUserRow(u) {
       </td>
       <td style="color:var(--slate-500)">${u.email}</td>
       <td>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm btn-secondary" data-edit-user="${u.id_usuario}">${icon('edit')} Editar</button>
-          <button class="btn btn-sm btn-danger" data-delete-user="${u.id_usuario}">${icon('trash')}</button>
-        </div>
+        ${renderActionDropdown([
+          { icon: 'edit', label: 'Editar', action: 'edit-user', value: u.id_usuario },
+          { icon: 'trash', label: 'Excluir', action: 'delete-user', value: u.id_usuario, danger: true },
+        ])}
       </td>
     </tr>
   `;
@@ -1437,64 +1416,60 @@ function bindAdminUsers() {
 
   const btnNewUser = document.getElementById('btn-new-user');
   if (btnNewUser) btnNewUser.addEventListener('click', () => openUserForm());
+}
 
-  const tbody = document.getElementById('users-tbody');
-  if (tbody) tbody.addEventListener('click', async e => {
-    const editBtn = e.target.closest('[data-edit-user]');
-    const deleteBtn = e.target.closest('[data-delete-user]');
-
-    if (editBtn) {
-      const id = parseInt(editBtn.dataset.editUser, 10);
-      if (!Number.isNaN(id)) {
-        const user = state.users.find(u => u.id_usuario === id);
-        if (user) openUserForm(user);
-      }
-      return;
-    }
-
-    if (!deleteBtn) return;
-    const ok = await showConfirmModal('Excluir este usuário e suas reservas?');
-    if (!ok) return;
-    try {
-      const id = parseInt(deleteBtn.dataset.deleteUser, 10);
-      if (Number.isNaN(id)) { showError('Erro interno'); return; }
-      await deleteUser(id);
-      showToast('Usuário excluído!');
-      await loadData();
-      renderContent();
-    } catch (err) { showError(err.message); }
-  });
+function renderActionDropdown(items) {
+  const id = 'act-' + Math.random().toString(36).slice(2, 8);
+  return `
+    <div class="action-dropdown" data-dropdown-id="${id}">
+      <button class="btn btn-sm btn-ghost action-trigger" data-trigger="${id}">
+        ${icon('settings')} Ações ${icon('arrowRight')}
+      </button>
+      <div class="action-menu" id="${id}">
+        ${items.map(item => `
+          <button class="action-item ${item.danger ? 'action-danger' : ''}" data-action="${item.action}" data-value="${item.value}">
+            ${icon(item.icon)} ${item.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderEditLoanModal(loan) {
   const overlay = document.createElement('div');
   overlay.className = 'confirm-modal-overlay';
   overlay.innerHTML = `
-    <div class="confirm-modal" style="max-width:420px;text-align:left">
-      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--slate-800)">Editar Datas da Reserva</h3>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="input-group">
-          <label>Data do Empréstimo</label>
-          <div class="input-wrapper">
-            <input type="date" id="edit-data-emprestimo" value="${loan.dataEmprestimo || ''}" />
+    <div class="confirm-modal modal-default">
+      <div class="modal-header">
+        <div class="modal-icon">${icon('edit')}</div>
+        <h3>Editar Datas da Reserva</h3>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="input-group">
+            <label>Data do Empréstimo</label>
+            <div class="input-wrapper">
+              <input type="date" id="edit-data-emprestimo" value="${loan.dataEmprestimo || ''}" />
+            </div>
           </div>
-        </div>
-        <div class="input-group">
-          <label>Data Prevista</label>
-          <div class="input-wrapper">
-            <input type="date" id="edit-data-prevista" value="${loan.dataPrevista || ''}" />
+          <div class="input-group">
+            <label>Data Prevista</label>
+            <div class="input-wrapper">
+              <input type="date" id="edit-data-prevista" value="${loan.dataPrevista || ''}" />
+            </div>
           </div>
-        </div>
-        <div class="input-group">
-          <label>Data de Devolução</label>
-          <div class="input-wrapper">
-            <input type="date" id="edit-data-devolucao" value="${loan.dataDevolucao || ''}" />
+          <div class="input-group">
+            <label>Data de Devolução</label>
+            <div class="input-wrapper">
+              <input type="date" id="edit-data-devolucao" value="${loan.dataDevolucao || ''}" />
+            </div>
           </div>
         </div>
       </div>
-      <div class="confirm-actions" style="margin-top:20px">
-        <button class="btn btn-primary" id="edit-save-loan">Salvar</button>
+      <div class="modal-footer">
         <button class="btn btn-ghost" id="edit-cancel-loan">Cancelar</button>
+        <button class="btn btn-primary" id="edit-save-loan">Salvar</button>
       </div>
     </div>
   `;
@@ -1543,7 +1518,13 @@ function renderAdminLoans() {
             const user = state.users.find(u => u.id_usuario === l.userId) || { nome: 'Usuário' };
               const isOverdue = l._computedStatus === 'overdue';
               const canReturn = l._computedStatus === 'active' || l._computedStatus === 'overdue';
-              const canMarkOverdue = l._computedStatus === 'active';
+              const loanActions = [];
+              if (canReturn) loanActions.push({ icon: 'check', label: 'Devolver', action: 'devolve', value: l.id });
+              loanActions.push({ icon: 'edit', label: 'Editar Datas', action: 'edit-loan', value: l.id });
+              if (l._computedStatus === 'active' || l._computedStatus === 'overdue') {
+                loanActions.push({ icon: 'x', label: 'Cancelar', action: 'cancel-loan', value: l.id, danger: true });
+              }
+              loanActions.push({ icon: 'trash', label: 'Excluir', action: 'delete-loan', value: l.id, danger: true });
               return `
                 <tr>
                   <td><span style="font-size:14px;font-weight:500;color:var(--slate-700)">${book.title}</span> <span style="font-size:12px;color:var(--slate-400);margin-left:6px">${book.author}</span></td>
@@ -1553,13 +1534,7 @@ function renderAdminLoans() {
                   <td style="color:var(--slate-500)">${displayDate(l.dataDevolucao)}</td>
                   <td>${statusBadge(l._computedStatus)}</td>
                   <td>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap">
-                      ${canReturn ? `<button class="btn btn-sm btn-success" data-devolve="${l.id}">${icon('check')} Devolver</button>` : ''}
-                      ${canMarkOverdue ? `<button class="btn btn-sm btn-warning" data-overdue="${l.id}">${icon('alertCircle')} Marcar Atrasado</button>` : ''}
-                      <button class="btn btn-sm btn-secondary" data-edit-loan="${l.id}">${icon('edit')} Datas</button>
-                      ${l._computedStatus === 'active' || l._computedStatus === 'overdue' ? `<button class="btn btn-sm btn-warning" data-cancel-loan="${l.id}">${icon('x')} Cancelar</button>` : ''}
-                      <button class="btn btn-sm btn-danger" data-delete-loan="${l.id}">${icon('trash')}</button>
-                    </div>
+                    ${renderActionDropdown(loanActions)}
                   </td>
                 </tr>
               `;
@@ -1573,62 +1548,131 @@ function renderAdminLoans() {
 }
 
 function bindAdminLoans() {
-  const tbody = document.getElementById('loans-tbody');
-  if (!tbody) return;
-  tbody.addEventListener('click', async e => {
-    const returnBtn = e.target.closest('[data-devolve]');
-    const cancelBtn = e.target.closest('[data-cancel-loan]');
-    const deleteBtn = e.target.closest('[data-delete-loan]');
-    const editBtn = e.target.closest('[data-edit-loan]');
-    const overdueBtn = e.target.closest('[data-overdue]');
-
-    try {
-      if (returnBtn) {
-        const id = parseInt(returnBtn.dataset.devolve, 10);
-        if (Number.isNaN(id)) { showError('Erro interno'); return; }
-        await updateReservation(id, 'DEVOLVIDO');
-        showToast('Devolução registrada!');
-      } else if (cancelBtn) {
-        const okCancel = await showConfirmModal('Cancelar esta reserva?');
-        if (!okCancel) return;
-        const id = parseInt(cancelBtn.dataset.cancelLoan, 10);
-        if (Number.isNaN(id)) { showError('Erro interno'); return; }
-        await updateReservation(id, 'CANCELADA');
-        showToast('Reserva cancelada!');
-      } else if (deleteBtn) {
-        const okDelete = await showConfirmModal('Excluir este registro de reserva?');
-        if (!okDelete) return;
-        const id = parseInt(deleteBtn.dataset.deleteLoan, 10);
-        if (Number.isNaN(id)) { showError('Erro interno'); return; }
-        await deleteReservation(id);
-        showToast('Reserva excluída!');
-      } else if (editBtn) {
-        const id = parseInt(editBtn.dataset.editLoan, 10);
-        if (Number.isNaN(id)) { showError('Erro interno'); return; }
-        const loan = state.loans.find(l => l.id === id);
-        if (!loan) { showError('Reserva não encontrada'); return; }
-        const dates = await renderEditLoanModal(loan);
-        if (!dates) return;
-        await updateReservationDates(id, dates);
-        showToast('Datas atualizadas!');
-      } else if (overdueBtn) {
-        const okOverdue = await showConfirmModal('Marcar esta reserva como ATRASADA?');
-        if (!okOverdue) return;
-        const id = parseInt(overdueBtn.dataset.overdue, 10);
-        if (Number.isNaN(id)) { showError('Erro interno'); return; }
-        await updateReservation(id, 'ATRASADA');
-        showToast('Reserva marcada como atrasada!');
-      } else {
-        return;
-      }
-
-      await loadData();
-      renderContent();
-    } catch (e) {
-      showError(e.message);
-    }
-  });
 }
+
+// ─── Global Action Handler ────────────────────────────────────────
+
+document.addEventListener('click', async (e) => {
+  const trigger = e.target.closest('[data-trigger]');
+  if (trigger) {
+    e.preventDefault();
+    e.stopPropagation();
+    const id = trigger.dataset.trigger;
+    document.querySelectorAll('.action-dropdown.open').forEach(d => {
+      if (d.querySelector(`[data-trigger="${id}"]`)) return;
+      d.classList.remove('open');
+    });
+    const dropdown = trigger.closest('.action-dropdown');
+    if (dropdown) dropdown.classList.toggle('open');
+    return;
+  }
+
+  const item = e.target.closest('.action-item');
+  if (item) {
+    const action = item.dataset.action;
+    const value = parseInt(item.dataset.value, 10);
+    if (Number.isNaN(value)) return;
+    item.closest('.action-dropdown')?.classList.remove('open');
+
+    if (action === 'edit-book') {
+      const book = state.books.find(b => b.id === value);
+      if (book) {
+        const formContainer = document.getElementById('book-form-container');
+        if (formContainer) {
+          const openBookForm = (book) => {
+            formContainer.innerHTML = renderBookForm(book);
+            document.getElementById('btn-cancel-book')?.addEventListener('click', () => { formContainer.innerHTML = ''; });
+            document.getElementById('btn-save-book')?.addEventListener('click', async () => {
+              const titulo = document.getElementById('form-title');
+              const autor = document.getElementById('form-author');
+              const paginas = document.getElementById('form-paginas');
+              if (!titulo || !autor || !paginas) return;
+              const t = titulo.value.trim();
+              const a = autor.value.trim();
+              const p = parseInt(paginas.value, 10) || 0;
+              const disp = document.getElementById('form-available')?.checked ?? true;
+              if (!t || !a) { showError('Preencha título e autor'); return; }
+              try {
+                await updateBook(value, { titulo: t, autor: a, paginas: p, disponivel: disp });
+                showToast('Livro atualizado!');
+                await loadData(); renderContent();
+              } catch (err) { showError(err.message); }
+            });
+          };
+          openBookForm(book);
+        }
+      }
+    } else if (action === 'delete-book') {
+      const ok = await showConfirmModal('Excluir este livro e suas reservas?', true);
+      if (!ok) return;
+      try { await deleteBook(value); showToast('Livro excluído!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    } else if (action === 'edit-user') {
+      const user = state.users.find(u => u.id_usuario === value);
+      if (user) {
+        const formContainer = document.getElementById('user-form-container');
+        if (formContainer) {
+          formContainer.innerHTML = renderUserForm(user);
+          document.getElementById('btn-cancel-user')?.addEventListener('click', () => { formContainer.innerHTML = ''; });
+          document.getElementById('btn-save-user')?.addEventListener('click', async () => {
+            const nome = document.getElementById('user-name');
+            const email = document.getElementById('user-email');
+            const senha = document.getElementById('user-pass');
+            if (!nome || !email) return;
+            const n = nome.value.trim();
+            const e = email.value.trim();
+            const s = senha ? senha.value : '';
+            if (!n || !e) { showError('Preencha nome e e-mail'); return; }
+            if (s && s.length < 6) { showError('A senha deve ter pelo menos 6 caracteres'); return; }
+            if (!e.includes('@')) { showError('Digite um e-mail válido'); return; }
+            try {
+              const payload = { nome: n, email: e };
+              if (s) payload.senha = s;
+              await updateUser(value, payload);
+              showToast('Usuário atualizado!');
+              await loadData(); renderContent();
+            } catch (err) { showError(err.message); }
+          });
+        }
+      }
+    } else if (action === 'delete-user') {
+      const ok = await showConfirmModal('Excluir este usuário e suas reservas?', true);
+      if (!ok) return;
+      try { await deleteUser(value); showToast('Usuário excluído!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    } else if (action === 'devolve') {
+      try { await updateReservation(value, 'DEVOLVIDO'); showToast('Devolução registrada!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    } else if (action === 'overdue') {
+      const ok = await showConfirmModal('Marcar esta reserva como ATRASADA?');
+      if (!ok) return;
+      try { await updateReservation(value, 'ATRASADA'); showToast('Reserva marcada como atrasada!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    } else if (action === 'edit-loan') {
+      const loan = state.loans.find(l => l.id === value);
+      if (!loan) { showError('Reserva não encontrada'); return; }
+      const dates = await renderEditLoanModal(loan);
+      if (!dates) return;
+      try { await updateReservationDates(value, dates); showToast('Datas atualizadas!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    } else if (action === 'cancel-loan') {
+      const ok = await showConfirmModal('Cancelar esta reserva?', true);
+      if (!ok) return;
+      try { await updateReservation(value, 'CANCELADA'); showToast('Reserva cancelada!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    } else if (action === 'delete-loan') {
+      const ok = await showConfirmModal('Excluir este registro de reserva?', true);
+      if (!ok) return;
+      try { await deleteReservation(value); showToast('Reserva excluída!'); await loadData(); renderContent(); }
+      catch (err) { showError(err.message); }
+    }
+    return;
+  }
+
+  if (!e.target.closest('.action-dropdown')) {
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+});
 
 // ─── Init ─────────────────────────────────────────────────────────
 
