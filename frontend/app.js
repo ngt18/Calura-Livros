@@ -949,6 +949,7 @@ function bindAdminBooks() {
   // Abre formulário para criar (book=null) ou editar (book=objeto)
   function openForm(book) {
     formContainer.innerHTML = renderBookForm(book);
+    formContainer.scrollIntoView({ behavior: 'smooth' });
 
     document.getElementById('btn-cancel-book').addEventListener('click', function () {
       formContainer.innerHTML = '';
