@@ -459,8 +459,12 @@ section h2 span {
 }
 
 .sidebar-footer {
-  padding: 16px;
+  padding: 12px 8px;
   border-top: 1px solid var(--slate-100);
+  transition: padding 0.2s;
+}
+.sidebar:hover .sidebar-footer {
+  padding: 16px;
 }
 
 .logout-btn {
@@ -474,6 +478,7 @@ section h2 span {
   color: var(--slate-500);
   background: none;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .logout-btn:hover {
