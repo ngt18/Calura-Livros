@@ -341,7 +341,7 @@ section h2 span {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  margin-left: 60px;
+  margin-left: 68px;
 }
 
 .app-content {
@@ -362,7 +362,7 @@ section h2 span {
 
 /* --- Sidebar (menu lateral) --- */
 .sidebar {
-  width: 60px;
+  width: 68px;
   background: #fff;
   border-right: 1px solid var(--slate-100);
   display: flex;
@@ -381,7 +381,7 @@ section h2 span {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 12px;
+  padding: 16px;
   border-bottom: 1px solid var(--slate-100);
   transition: padding 0.2s;
 }
