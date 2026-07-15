@@ -1,24 +1,41 @@
 /* ================================================================
-   Calura Livros - Estilos
-   Organizado por seção: reset, badges, botões, toast, modal,
-   login, layout, catálogo, paginação, empréstimos, admin
+   ESTILOS — Calura Livros
+   Folha de estilos única do frontend (SPA), em CSS puro (sem
+   framework). Cobre desde as variáveis de cor até o responsivo,
+   organizada em seções — veja os banners abaixo.
    ================================================================ */
 
-/* --- Reset --- */
+/* ================================================================
+   RESET & VARIÁVEIS GLOBAIS (DESIGN TOKENS)
+   Primeiro, zera-se o espaçamento padrão que cada navegador aplica
+   por conta própria (reset). Em seguida, define-se a paleta de
+   cores do sistema em variáveis CSS, reaproveitadas no arquivo
+   inteiro através de var(--nome).
+   ================================================================ */
+
+/* --- Reset: remove margem/padding padrão e unifica o box-sizing --- */
 *, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* --- Variáveis de cores (design tokens) --- */
+/* --- Variáveis de cores (design tokens) ---
+   Paleta nomeada por tom, no estilo do Tailwind CSS, escolhida à
+   mão (não vem de nenhuma biblioteca): cada cor tem um nome
+   (blue, slate, emerald...) e um número de intensidade — quanto
+   maior o número, mais escura/forte a cor. Usar var(--nome) no
+   lugar do código hexadecimal deixa o CSS mais legível e permite
+   trocar uma cor em um único lugar. */
 :root {
+  /* Azul: cor de destaque da marca (links, botão principal, itens ativos) */
   --blue-50: #eff6ff;
   --blue-100: #dbeafe;
   --blue-500: #3b82f6;
   --blue-600: #2563eb;
   --blue-700: #1d4ed8;
 
+  /* Slate (cinza-azulado): textos, fundos neutros, bordas e o status "devolvido" */
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
@@ -30,13 +47,16 @@
   --slate-800: #1e293b;
   --slate-900: #0f172a;
 
+  /* Verde (emerald): sucesso — status "ativo" e livro "disponível" */
   --emerald-100: #d1fae5;
   --emerald-600: #059669;
   --emerald-700: #047857;
 
+  /* Amarelo: atenção — usado no status "cancelada" */
   --yellow-100: #fef3c7;
   --yellow-700: #a16207;
 
+  /* Vermelho: perigo/erro — status "atrasada", indisponível e ações destrutivas */
   --red-50: #fef2f2;
   --red-100: #fee2e2;
   --red-200: #fecaca;
@@ -44,9 +64,18 @@
   --red-600: #dc2626;
   --red-700: #b91c1c;
 
+  /* Atalhos usados direto no body: cor de fundo da página e cor padrão do texto */
   --bg: #f1f5f9;
   --text: #1e293b;
 }
+
+/* ================================================================
+   ESTILOS BASE (TAGS HTML)
+   Aparência padrão aplicada direto nas tags (body, h1-h4, button,
+   input, table...), sem precisar de nenhuma classe. Vale para o
+   site inteiro e serve de ponto de partida para os componentes
+   e telas definidos mais abaixo.
+   ================================================================ */
 
 /* --- Base --- */
 body {
@@ -129,7 +158,15 @@ section h2 span {
   color: var(--slate-400);
 }
 
-/* --- Badges de status --- */
+/* ================================================================
+   COMPONENTES REUTILIZÁVEIS (UI KIT)
+   Peças pequenas e genéricas usadas em várias telas do sistema:
+   badges de status, botões, toast (aviso temporário) e modal de
+   confirmação. Como são classes soltas (não amarradas a uma tela),
+   mudar aqui reflete no site inteiro de uma vez.
+   ================================================================ */
+
+/* --- Badges de status: "pilulas" coloridas (ex.: Ativo, Atrasado) --- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -139,12 +176,14 @@ section h2 span {
   font-weight: 500;
 }
 
-.badge-green { background: var(--emerald-100); color: var(--emerald-700); }
-.badge-red   { background: var(--red-100);     color: var(--red-700); }
-.badge-yellow{ background: var(--yellow-100);   color: var(--yellow-700); }
-.badge-slate { background: var(--slate-100);    color: var(--slate-600); }
+/* Cada cor representa um status; a classe certa é escolhida no JS
+   (função statusBadge() em app.js) */
+.badge-green { background: var(--emerald-100); color: var(--emerald-700); } /* Ativo / Disponível */
+.badge-red   { background: var(--red-100);     color: var(--red-700); }    /* Atrasado / Indisponível */
+.badge-yellow{ background: var(--yellow-100);   color: var(--yellow-700); } /* Cancelado */
+.badge-slate { background: var(--slate-100);    color: var(--slate-600); } /* Devolvido */
 
-/* --- Botões --- */
+/* --- Botões: .btn é a base comum; combine com uma classe de cor abaixo --- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -156,6 +195,7 @@ section h2 span {
   transition: 150ms;
 }
 
+/* Variações de cor */
 .btn-primary { background: var(--blue-600); color: #fff; }
 .btn-primary:hover { background: var(--blue-700); }
 
@@ -168,10 +208,11 @@ section h2 span {
 .btn-success { background: var(--emerald-100); color: var(--emerald-700); }
 .btn-success:hover { filter: brightness(0.95); }
 
+/* Variação de tamanho (menor) e estado desabilitado */
 .btn-sm { font-size: 13px; padding: 5px 14px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
-/* --- Toast (mensagem temporária) --- */
+/* --- Toast: aviso temporário no canto da tela (ex.: "Reserva feita!") --- */
 .toast {
   position: fixed;
   bottom: 24px;
@@ -181,24 +222,26 @@ section h2 span {
   font-size: 14px;
   font-weight: 500;
   z-index: 9999;
-  animation: slideIn 0.3s;
+  animation: slideIn 0.3s; /* aplica a animação declarada logo abaixo */
   background: var(--slate-800);
   color: #fff;
 }
 
+/* Variação para mensagens de erro */
 .toast-error {
   background: var(--red-600);
 }
 
+/* Animação de entrada: desliza de baixo pra cima enquanto aparece (fade) */
 @keyframes slideIn {
   from { transform: translateY(20px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 
-/* --- Modal de confirmação --- */
+/* --- Modal de confirmação (ex.: "Tem certeza que deseja excluir?") --- */
 .confirm-modal-overlay {
   position: fixed;
-  inset: 0;
+  inset: 0; /* atalho para top/right/bottom/left: 0 — cobre a tela toda */
   background: rgba(0,0,0,0.4);
   display: flex;
   align-items: center;
@@ -206,6 +249,7 @@ section h2 span {
   z-index: 9998;
 }
 
+/* Caixa branca central do modal */
 .confirm-modal {
   background: #fff;
   border-radius: 14px;
@@ -226,6 +270,7 @@ section h2 span {
   margin-bottom: 20px;
 }
 
+/* Variação usada em confirmações de ação destrutiva (ex.: excluir livro) */
 .modal-danger h3 {
   color: var(--red-600);
 }
@@ -235,6 +280,12 @@ section h2 span {
   gap: 10px;
   justify-content: center;
 }
+
+/* ================================================================
+   TELA DE LOGIN
+   Cartão central com logo, abas (entrar/cadastrar) e formulário.
+   É a única tela que não usa o layout com sidebar (seção abaixo).
+   ================================================================ */
 
 /* --- Tela de Login --- */
 .login-page {
@@ -304,6 +355,7 @@ section h2 span {
   border-bottom: 2px solid transparent;
 }
 
+/* Aba ativa (classe trocada via JS) fica azul, com linha embaixo */
 .login-tabs button.active {
   color: var(--blue-600);
   border-bottom-color: var(--blue-600);
@@ -320,6 +372,7 @@ section h2 span {
   flex-direction: column;
 }
 
+/* Botão "olhinho" para mostrar/ocultar a senha, sobreposto ao input */
 .toggle-pass {
   position: absolute;
   right: 10px;
@@ -329,6 +382,14 @@ section h2 span {
   color: var(--slate-400);
   padding: 4px;
 }
+
+/* ================================================================
+   LAYOUT PRINCIPAL (SIDEBAR + TOPBAR + CONTEÚDO)
+   Estrutura das telas internas (depois do login): sidebar fixa à
+   esquerda, topbar no alto e a área de conteúdo no meio. As três
+   seções a seguir (.app-layout, .sidebar, .topbar) trabalham juntas
+   para montar esse esqueleto.
+   ================================================================ */
 
 /* --- Layout com sidebar --- */
 .app-layout {
@@ -341,18 +402,18 @@ section h2 span {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  margin-left: 68px;
+  margin-left: 68px; /* abre espaço igual à largura da sidebar "mini" (recolhida) */
 }
 
 .app-content {
   flex: 1;
   padding: 24px;
-  max-width: 1100px;
+  max-width: 1100px; /* conteúdo não estica demais em telas muito largas */
   width: 100%;
   margin: 0 auto;
 }
 
-/* Overlay escuro para mobile quando sidebar abre */
+/* Overlay escuro para mobile quando sidebar abre (fecha o menu ao clicar fora) */
 .overlay {
   position: fixed;
   inset: 0;
@@ -360,7 +421,12 @@ section h2 span {
   z-index: 90;
 }
 
-/* --- Sidebar (menu lateral) --- */
+/* --- Sidebar (menu lateral) ---
+   No desktop ela começa "mini" (68px, só ícones) e expande para
+   240px quando o mouse passa por cima (:hover), revelando o texto
+   de cada item. Fica fixa na tela (position: fixed) para não rolar
+   junto com o conteúdo. No mobile o comportamento muda bastante —
+   veja a seção Responsivo, lá no fim do arquivo. */
 .sidebar {
   width: 68px;
   background: #fff;
@@ -370,11 +436,11 @@ section h2 span {
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 100;
-  overflow: hidden;
+  overflow: hidden; /* esconde o texto enquanto a sidebar está "mini" */
   transition: width 0.2s;
 }
 .sidebar:hover {
-  width: 240px;
+  width: 240px; /* expande ao passar o mouse */
 }
 
 .sidebar-logo {
@@ -401,6 +467,8 @@ section h2 span {
   flex-shrink: 0;
 }
 
+/* Nome do sistema ao lado do ícone: só fica visível (opacity: 1)
+   quando a sidebar está expandida no hover */
 .logo-text {
   font-size: 18px;
   font-weight: 700;
@@ -447,6 +515,7 @@ section h2 span {
   background: var(--slate-50);
 }
 
+/* Mesmo truque do .logo-text: rótulo do menu só aparece com a sidebar expandida */
 .nav-label {
   opacity: 0;
   white-space: nowrap;
@@ -456,6 +525,7 @@ section h2 span {
   opacity: 1;
 }
 
+/* Destaca o item da tela em que o usuário está no momento (classe via JS) */
 .sidebar-nav button.active {
   background: var(--blue-50);
   color: var(--blue-600);
@@ -552,6 +622,12 @@ section h2 span {
   color: var(--slate-700);
 }
 
+/* ================================================================
+   CATÁLOGO DE LIVROS
+   Tela principal (dashboard): busca, grid de cards de livro e,
+   mais abaixo, a paginação e as mensagens de "lista vazia".
+   ================================================================ */
+
 /* --- Catálogo de livros --- */
 .catalog-header {
   margin-bottom: 24px;
@@ -579,7 +655,7 @@ section h2 span {
 }
 
 .search-box input:focus {
-  box-shadow: none;
+  box-shadow: none; /* remove o destaque azul padrão; o .search-box já tem borda */
 }
 
 .search-box svg {
@@ -587,7 +663,11 @@ section h2 span {
   flex-shrink: 0;
 }
 
-/* Grid de cards de livros */
+/* Grid de cards de livros: repeat(auto-fill, minmax(180px, 1fr)) faz o
+   navegador calcular sozinho quantas colunas cabem na largura disponível
+   — cada coluna tem no mínimo 180px, e a quantidade de colunas se
+   reajusta automaticamente ao redimensionar a janela (responsivo "de
+   graça", sem precisar de media query aqui) */
 .books-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -604,7 +684,7 @@ section h2 span {
 
 .book-card:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  transform: translateY(-2px);
+  transform: translateY(-2px); /* efeito de "levantar" o card no hover */
 }
 
 .book-cover {
@@ -625,6 +705,7 @@ section h2 span {
   gap: 6px;
 }
 
+/* Trunca o título em no máximo 2 linhas, cortando com reticências */
 .book-title {
   font-size: 14px;
   font-weight: 600;
@@ -678,7 +759,10 @@ section h2 span {
   font-weight: 500;
 }
 
-/* --- Estados vazios e carregamento --- */
+/* --- Estados vazios e carregamento ---
+   Mensagens reaproveitadas em telas diferentes (catálogo, minhas
+   reservas etc.) quando não há dados para mostrar ou a página
+   ainda está buscando informação na API. */
 .empty-msg, .center-msg {
   text-align: center;
   padding: 40px;
@@ -694,11 +778,18 @@ section h2 span {
   margin-bottom: 16px;
 }
 
+/* Variação usada dentro de tabelas do admin (linha "Nenhum item encontrado") */
 .empty-state {
   text-align: center;
   color: var(--slate-400);
   padding: 32px;
 }
+
+/* ================================================================
+   CARDS DE RESERVA ("Minhas Reservas")
+   Lista de reservas do usuário logado: capa do livro, dados,
+   datas de retirada/devolução e um destaque quando está atrasada.
+   ================================================================ */
 
 /* --- Cards de reservas (Minhas Reservas) --- */
 .loan-card {
@@ -744,6 +835,7 @@ section h2 span {
   color: var(--slate-400);
 }
 
+/* Classe .overdue é adicionada via JS quando a reserva está atrasada */
 .loan-card.overdue {
   border-left: 3px solid var(--red-500);
 }
@@ -752,6 +844,13 @@ section h2 span {
   color: var(--red-600);
   font-weight: 500;
 }
+
+/* ================================================================
+   ÁREA ADMINISTRATIVA
+   Telas restritas a usuários admin: a mesma estrutura de tabela é
+   reaproveitada tanto na lista de livros quanto na de reservas, e
+   os formulários abaixo servem para cadastrar/editar livros.
+   ================================================================ */
 
 /* --- Área Admin --- */
 .admin-toolbar {
@@ -762,6 +861,7 @@ section h2 span {
   margin-bottom: 16px;
 }
 
+/* Estrutura de tabela compartilhada entre "Livros" e "Reservas" no admin */
 .admin-table {
   background: #fff;
   border-radius: 12px;
@@ -773,6 +873,7 @@ section h2 span {
   vertical-align: middle;
 }
 
+/* Célula com miniatura da capa + título do livro, lado a lado */
 .table-book {
   display: flex;
   align-items: center;
@@ -797,7 +898,7 @@ section h2 span {
   gap: 6px;
 }
 
-/* Formulário de cadastro/edição */
+/* Formulário de cadastro/edição (usado tanto para criar quanto para editar um livro) */
 .form-card {
   background: #fff;
   border-radius: 12px;
@@ -832,11 +933,24 @@ section h2 span {
 }
 
 .checkbox-label input {
-  width: auto;
+  width: auto; /* sem isso, herdaria width: 100% da regra global de input */
 }
+
+/* ================================================================
+   RESPONSIVO (CELULAR/TABLET)
+   A partir daqui, tudo fica dentro de @media (max-width: 768px):
+   essas regras só valem em telas estreitas e "sobrescrevem" as
+   regras equivalentes lá de cima (CSS é lido de cima para baixo).
+   Aqui a sidebar deixa de ficar sempre visível e vira um menu
+   "gaveta" que desliza por cima do conteúdo, e o grid de livros
+   passa a usar cards menores.
+   ================================================================ */
 
 /* --- Responsivo (celular/tablet) --- */
 @media (max-width: 768px) {
+  /* Esconde a sidebar deslocando-a 100% da própria largura para a
+     esquerda — ela fica fora da área visível, mas continua no DOM
+     (transform não remove o elemento, só o desenha em outro lugar) */
   .sidebar {
     width: 240px;
     transform: translateX(-100%);
@@ -844,6 +958,8 @@ section h2 span {
     overflow: visible;
   }
 
+  /* Classe .open é ligada/desligada pelo JS (botão de menu na topbar):
+     ao ativar, a sidebar volta pra posição normal — efeito "gaveta" */
   .sidebar.open {
     transform: translateX(0);
   }
@@ -856,22 +972,25 @@ section h2 span {
     margin-left: 0;
   }
 
+  /* No mobile o texto do menu já fica sempre visível, sem depender do hover */
   .logo-text, .nav-label {
     opacity: 1;
   }
 
   .app-main {
-    margin-left: 0;
+    margin-left: 0; /* sem sidebar fixa ocupando espaço, conteúdo usa a tela toda */
   }
 
+  /* Mostra o botão de "hambúrguer" que abre a sidebar (fica oculto no desktop) */
   .topbar-menu {
     display: block;
   }
 
   .topbar-name {
-    display: none;
+    display: none; /* economiza espaço na topbar em telas estreitas */
   }
 
+  /* Mesmo truque do grid do catálogo, com cards um pouco menores (150px) */
   .books-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }

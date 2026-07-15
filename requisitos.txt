@@ -1,68 +1,87 @@
 Requisitos Funcionais
 
 RF01 — Cadastrar usuários
-O sistema deverá permitir cadastrar usuários com nome e e-mail.
+O sistema deve permitir o cadastro de usuários informando nome, e-mail e senha (mínimo de 6 caracteres).
+O e-mail é único: não é possível cadastrar dois usuários com o mesmo e-mail.
+Após o cadastro, o usuário já entra automaticamente no sistema.
 
 RF02 — Realizar login
-O sistema deverá permitir que o usuário entre utilizando e-mail e senha.
+O sistema deve permitir que o usuário entre utilizando e-mail e senha.
+Em caso de sucesso, é gerado um token de autenticação (JWT, válido por 24 horas) e a sessão fica salva no navegador, mantendo o usuário logado ao atualizar a página.
 
 RF03 — Consultar livros
-O sistema deverá exibir os livros cadastrados e informar se estão disponíveis.
+O sistema deve exibir o catálogo de livros cadastrados, indicando se cada livro está disponível ou emprestado.
+O catálogo possui busca por título ou autor e paginação (50 livros por página).
+A disponibilidade é calculada automaticamente: o livro aparece como indisponível enquanto existir uma reserva ativa ou atrasada para ele.
 
 RF04 — Cadastrar livros
-O sistema deverá permitir que o responsável pela biblioteca cadastre novos livros, incluindo a quantidade de páginas.
+O sistema deve permitir que o administrador cadastre novos livros, informando título e autor (obrigatórios), número de páginas e disponibilidade.
+O número de páginas é usado no cálculo do prazo de empréstimo (RF05).
 
 RF05 — Reservar livro
-O sistema deverá permitir que um usuário reserve um livro disponível.
-Ao reservar, o sistema deve calcular automaticamente:
-  - Data do empréstimo (data da reserva)
-  - Data prevista de devolução (data do empréstimo + prazo baseado nas páginas do livro)
+O sistema deve permitir que um usuário autenticado reserve um livro disponível.
+Ao reservar, o sistema registra e calcula automaticamente:
+  - Data do empréstimo (igual à data da reserva)
+  - Data prevista de devolução (data do empréstimo + prazo baseado no número de páginas do livro)
 O prazo de empréstimo é definido por faixa de páginas:
   - Até 150 páginas: 7 dias
   - 151 a 300 páginas: 10 dias
   - 301 a 500 páginas: 15 dias
   - Acima de 500 páginas: 20 dias
+Regras: não é possível reservar um livro que já tenha reserva ativa/atrasada, nem manter duas reservas ativas do mesmo livro para o mesmo usuário.
 
 RF06 — Consultar reservas
-O sistema deverá permitir que o usuário visualize suas reservas com:
+O sistema deve permitir a consulta das reservas, exibindo:
+  - Livro e usuário
   - Data do empréstimo
   - Data prevista de devolução
+  - Data de devolução (quando houver)
   - Status calculado automaticamente
-  - Dias restantes ou dias em atraso
+O usuário comum visualiza apenas as próprias reservas (separadas em "Ativas" e "Histórico");
+o administrador visualiza as reservas de todos os usuários.
 
 RF07 — Devolver livro
-O sistema deverá permitir que o usuário ou o administrador registre a devolução de um livro, salvando automaticamente a data de devolução.
+O sistema deve permitir que o usuário (nas suas reservas) ou o administrador registre a devolução de um livro.
+A data de devolução é salva automaticamente (data atual) e o status passa para DEVOLVIDO, liberando o livro no catálogo.
 
 RF08 — Cancelar reserva
-O sistema deverá permitir que o usuário cancele uma reserva.
+O status CANCELADA faz parte do modelo de reservas e o cancelamento é suportado pela API.
+Observação: não há botão de cancelamento na interface atual — nas telas estão disponíveis apenas a devolução e a exclusão de reservas.
 
 RF09 — Status automático
-O sistema deverá calcular o status da reserva automaticamente com base nas datas:
-  - EM_ANDAMENTO: data atual não ultrapassou a data prevista e não foi devolvido
-  - ATRASADO: data atual ultrapassou a data prevista e ainda não foi devolvido
-  - DEVOLVIDO: possui data de devolução registrada
-  - CANCELADO: foi cancelado manualmente
-Não deve existir marcação manual de atraso.
+O status da reserva é calculado automaticamente a partir das datas, a cada leitura das reservas
+(sem tarefa agendada e sem marcação manual na interface):
+  - ATIVA (exibida como "Ativo"): a data atual não ultrapassou a data prevista e o livro não foi devolvido
+  - ATRASADA (exibida como "Atrasado"): a data atual ultrapassou a data prevista e o livro ainda não foi devolvido
+  - DEVOLVIDO (exibida como "Devolvido"): possui data de devolução registrada
+  - CANCELADA (exibida como "Cancelado"): reserva cancelada
+Os status DEVOLVIDO e CANCELADA são finais e não voltam a ser recalculados.
 
 RF10 — Editar e excluir registros
-O sistema deverá permitir editar ou excluir usuários, livros e reservas.
+O sistema deve permitir editar e excluir registros:
+  - Livros: cadastrar, editar e excluir pela interface do administrador.
+  - Reservas: registrar devolução e excluir pela interface do administrador.
+  - Usuários: edição e exclusão são suportadas pela API, mas não há tela de gerenciamento de usuários na interface atual.
+Ao excluir um livro ou um usuário, as reservas relacionadas também são removidas.
 
 Requisitos Não Funcionais
 
 RNF01 — Interface simples
-O sistema deverá possuir uma interface fácil de entender e utilizar.
+O sistema possui uma interface simples, no formato de aplicação de página única (SPA), com telas de login, catálogo, minhas reservas e administração, além de mensagens (toasts) e modais de confirmação.
 
 RNF02 — Responsividade
-O sistema deverá funcionar em computadores e celulares.
+O sistema funciona em computadores e celulares.
+Em telas de até 768px, o menu lateral vira um menu retrátil (gaveta) e o grid de livros se adapta ao tamanho da tela.
 
 RNF03 — Segurança
-As senhas dos usuários deverão ser armazenadas de forma segura.
+As senhas nunca são armazenadas em texto: são protegidas com scrypt e um salt aleatório por usuário, e comparadas em tempo constante (timingSafeEqual).
+O acesso às rotas protegidas usa token JWT, com verificação de administrador quando necessário.
 
 RNF04 — Compatibilidade
-O sistema deverá funcionar nos navegadores atuais, como Chrome, Edge e Firefox.
+O sistema é feito em HTML, CSS e JavaScript padrão, funcionando nos navegadores atuais, como Chrome, Edge e Firefox.
 
 RNF05 — Desempenho
-As páginas e consultas deverão carregar em poucos segundos.
+As consultas usam um pool de conexões com o banco, o catálogo é paginado (50 por página) e as consultas são parametrizadas, mantendo o carregamento rápido.
 
 RNF06 — Disponibilidade
-O sistema deverá estar disponível durante o horário de funcionamento da biblioteca.
+O sistema deve estar disponível durante o horário de funcionamento da biblioteca.

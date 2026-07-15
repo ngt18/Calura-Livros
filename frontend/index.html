@@ -1,15 +1,28 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+<!-- ================================================================
+     Calura Livros - HTML único da SPA (Single Page Application)
+     Este arquivo quase não muda: existe só uma <div id="app"> vazia.
+     Todo o conteúdo real (telas de login, catálogo, admin...) é
+     desenhado em tempo de execução pelo JavaScript (app.js).
+================================================================ -->
 <head>
   <meta charset="UTF-8" />
+  <!-- Deixa o layout responsivo (se adapta a celular/tablet/desktop) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CaluraLivros</title>
+  <!-- Fontes usadas no design (Poppins para títulos, Inter para texto),
+       carregadas do Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Estilos (cores, layout, componentes) de toda a aplicação -->
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
+  <!-- Div vazia onde o app.js desenha (via innerHTML) a tela atual -->
   <div id="app"></div>
+  <!-- ORDEM IMPORTA: api.js precisa carregar antes de app.js, porque
+       app.js chama funções (fetchBooks, loginUser...) definidas nele -->
   <script src="/api.js"></script>
   <script src="/app.js"></script>
 </body>

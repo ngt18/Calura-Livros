@@ -1,8 +1,22 @@
+// ================================================================
+//  Script: Gerar o database/seed.sql
+//  Utilitário de linha de comando - roda com:
+//      node scripts/generateSeed.js
+//  Busca a capa de ~100 livros famosos na Open Library (uma única
+//  vez, aqui) e GERA o arquivo database/seed.sql já com as URLs das
+//  capas prontas dentro dos INSERTs. A busca externa acontece só
+//  neste script - o resultado fica "congelado" em texto no seed.sql,
+//  que é o arquivo realmente usado depois para popular o banco.
+//  Este script NÃO altera o banco de dados diretamente.
+// ================================================================
+
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const fs = require("fs");
 const { fetchCoverUrl } = require("../services/openLibrary");
 
+// Lista dos ~100 livros famosos que compõem o catálogo inicial do
+// sistema. Cada item é [titulo, autor, numero de paginas].
 const books = [
   ["Dom Quixote", "Miguel de Cervantes", 992],
   ["Cem Anos de Solidao", "Gabriel Garcia Marquez", 432],
@@ -106,13 +120,19 @@ const books = [
   ["Os Trabalhos de Persiles e Sigismunda", "Miguel de Cervantes", 416],
 ];
 
+// Guarda as chaves "titulo|autor" já processadas, para não inserir
+// o mesmo livro duas vezes caso ele apareça repetido na lista acima
 const done = new Set();
 
+// Escapa aspas simples para não quebrar o SQL gerado (ex: um título
+// ou autor que tenha aspas simples no meio do texto)
 function escapeSql(val) {
   return val.replace(/'/g, "''");
 }
 
+// Monta o conteúdo do seed.sql linha por linha e grava no disco ao final
 async function main() {
+  // Cabeçalho do SQL: seleciona o banco e inicia o INSERT de livros
   const lines = [
     "USE biblioteca;",
     "",
@@ -123,17 +143,22 @@ async function main() {
     "INSERT INTO livros (titulo, autor, paginas, disponivel, imagem) VALUES",
   ];
 
+  // Vai acumular uma linha "(titulo, autor, paginas, disponivel, imagem)" por livro
   const inserts = [];
 
   let idx = 0;
+  // Para cada livro da lista, busca a capa e monta a linha do INSERT
   for (const [titulo, autor, paginas] of books) {
+    // Evita processar/inserir o mesmo livro duas vezes
     const key = `${titulo}|${autor}`;
     if (done.has(key)) continue;
     done.add(key);
     idx++;
 
     process.stdout.write(`[${idx}/100] ${titulo}... `);
+    // Busca a capa na Open Library (ver services/openLibrary.js)
     const cover = await fetchCoverUrl(titulo, autor);
+    // Se não achou capa, grava NULL na coluna imagem
     const img = cover ? `'${cover}'` : "NULL";
     const linha = `('${escapeSql(titulo)}', '${escapeSql(autor)}', ${paginas}, TRUE, ${img})`;
 
@@ -145,15 +170,22 @@ async function main() {
 
     inserts.push(linha);
 
+    // Espera 400ms entre cada busca para não sobrecarregar a API
+    // pública da Open Library com muitas chamadas seguidas
     await new Promise((r) => setTimeout(r, 400));
   }
 
+  // Junta todas as linhas de INSERT numa lista só, separadas por vírgula
   lines.push("  " + inserts.join(",\n  ") + ";");
   lines.push("");
   lines.push("-- ============================================================");
   lines.push("-- USUARIOS DE EXEMPLO (senha padrao: 123456)");
   lines.push("-- ============================================================");
   lines.push("");
+  // Usuários de exemplo entram com senha_hash/senha_salt vazios de
+  // propósito: no primeiro boot da API, ensureRuntimeSchema (ver
+  // database/connection.js) detecta esses campos vazios e gera o
+  // hash de verdade usando a senha padrão do .env
   lines.push("INSERT INTO usuarios (nome, email, senha_hash, senha_salt) VALUES");
   lines.push("  ('Ana Silva', 'ana@email.com', '', ''),");
   lines.push("  ('Carlos Oliveira', 'carlos@email.com', '', ''),");
@@ -169,9 +201,11 @@ async function main() {
 
   const output = lines.join("\n");
 
+  // Grava o SQL final em database/seed.sql (sobrescreve se já existir)
   const outPath = path.resolve(__dirname, "../database/seed.sql");
   fs.writeFileSync(outPath, output, "utf-8");
   console.log(`\nseed.sql gerado em ${outPath}`);
 }
 
+// Executa a função imediatamente ao rodar o script
 main();

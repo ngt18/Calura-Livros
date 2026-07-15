@@ -1,7 +1,28 @@
+-- ================================================================
+--  Calura Livros - Dados de exemplo (seed)
+--  ATENÇÃO: este arquivo é GERADO AUTOMATICAMENTE pelo script
+--  api/scripts/generateSeed.js - não edite ele à mão, pois qualquer
+--  alteração é perdida na próxima vez que o script rodar de novo.
+--
+--  O que ele faz:
+--   1) Popula a tabela "livros" com ~100 títulos famosos, já com a
+--      URL da capa (buscada automaticamente na API do Open Library
+--      por generateSeed.js no momento em que o arquivo foi gerado).
+--   2) Cadastra alguns "usuarios" de exemplo para teste/apresentação.
+--      O hash/salt da senha desses usuários pode vir vazio ('', '') -
+--      é o connection.js quem preenche isso sozinho, na inicialização
+--      da API, gerando um hash a partir da senha padrão configurada em
+--      DEFAULT_USER_PASSWORD no arquivo .env (ex.: "123456"). Assim,
+--      todo mundo consegue logar com essa senha padrão em ambiente de
+--      testes, sem senha nenhuma exposta aqui no SQL.
+-- ================================================================
+
 USE biblioteca;
 
 -- ============================================================
 -- 100 LIVROS MAIS FAMOSOS (com capas do Open Library)
+-- Colunas: titulo, autor, paginas, disponivel (sempre TRUE aqui,
+-- ninguém começa emprestado) e imagem (URL da capa)
 -- ============================================================
 
 INSERT INTO livros (titulo, autor, paginas, disponivel, imagem) VALUES
@@ -109,6 +130,8 @@ INSERT INTO livros (titulo, autor, paginas, disponivel, imagem) VALUES
 
 -- ============================================================
 -- USUARIOS DE EXEMPLO (senha padrao: 123456)
+-- Se senha_hash/senha_salt vierem vazios, o connection.js calcula e
+-- preenche os dois sozinho no boot da API (ver cabeçalho deste arquivo)
 -- ============================================================
 
 INSERT INTO usuarios (nome, email, senha_hash, senha_salt) VALUES
@@ -122,4 +145,7 @@ INSERT INTO usuarios (nome, email, senha_hash, senha_salt) VALUES
   ('Felipe Rocha', 'felipe@email.com', 'cb8a987d205b638b14b8ca52ca0159e9fd7bc25423746a5fc168918d5bc75405649e15619c22d1bc35825efdb2fd2f45f8317398dafd9f672702945f5383073f', 'd5d8d4a5c485076057fb8c638c879dfe'),
   ('Beatriz Campos', 'beatriz@email.com', 'eef5d90483f0edfeda1c9d5543a983528537936090797039f9fd86c44794e1287060abb0d3db87d2faa0c40de8cf99adf734c4e3b6365b096c9170afeb9cf122', 'e704d2269ee1482c6b7663c375740c16'),
   ('Lucas Barbosa', 'lucas@email.com', '8c1274c716f487b24597f59db6c6d807e541087a0ea8192f89a3a5dbc35062e33062c91766948e1bea6a6ae9db0a8afdf639cff54c27347f424d843f5ba59d3c', 'e6569408b8553f65b6685617fc7e95ae'),
+  -- Exemplo de hash/salt vazios: são preenchidos pelo connection.js no
+  -- boot da API, usando a senha padrão do .env (é assim que este usuário
+  -- consegue logar mesmo sem nenhuma senha exposta neste arquivo)
   ('Administrador', 'admin@caluralivros.com', '', '');

@@ -1,7 +1,24 @@
+// ================================================================
+//  Conexão com o Banco de Dados (MySQL)
+//  Cria o pool de conexões usado por toda a API e garante que as
+//  tabelas e colunas necessárias existam antes do servidor subir.
+// ================================================================
+
 const path = require("path")
 const crypto = require("crypto")
+
+// Carrega as variáveis do arquivo .env (DB_HOST, DB_USER, DB_PASSWORD...)
+// para dentro de process.env, antes de qualquer código usá-las
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") })
 
+// ================================================================
+//  POOL DE CONEXÕES
+//  Em vez de abrir e fechar uma conexão nova a cada consulta (caro e
+//  lento), o pool mantém conexões abertas e as reaproveita.
+//  Analogia: caixas de um mercado - em vez de abrir um caixa novo
+//  para cada cliente, um grupo fixo de caixas atende todo mundo.
+//  connectionLimit é o número máximo de conexões abertas ao mesmo tempo.
+// ================================================================
 const mysql = require("mysql2/promise")
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
@@ -13,6 +30,14 @@ const pool = mysql.createPool({
     connectionLimit: 10
 });
 
+// ================================================================
+//  VERIFICAÇÃO DE SCHEMA
+//  Consultam o INFORMATION_SCHEMA (uma espécie de "banco de dados
+//  sobre o banco de dados" que o próprio MySQL mantém) para saber
+//  se uma tabela ou coluna já existe, antes de tentar criá-la.
+// ================================================================
+
+// Retorna true se a tabela `tableName` já existe no banco atual
 async function tableExists(connection, tableName) {
     try {
         const [rows] = await connection.query(
@@ -23,10 +48,14 @@ async function tableExists(connection, tableName) {
         );
         return rows[0].total > 0;
     } catch {
+        // Se a consulta falhar, assume que a tabela não existe
         return false;
     }
 }
 
+// Retorna true se a coluna `columnName` já existe na tabela `tableName`.
+// Se a tabela em si ainda não existe, retorna true (não há coluna
+// "faltando" para adicionar - a tabela toda será criada do zero)
 async function columnExists(connection, tableName, columnName) {
     if (!(await tableExists(connection, tableName))) return true;
     const [rows] = await connection.query(
@@ -38,7 +67,14 @@ async function columnExists(connection, tableName, columnName) {
     return rows[0].total > 0;
 }
 
+// ================================================================
+//  CRIAÇÃO DAS TABELAS PRINCIPAIS
+//  Cria as 3 tabelas base do sistema (usuarios, livros, reservas)
+//  caso ainda não existam. Não faz nada se elas já foram criadas -
+//  por isso é seguro chamar isso toda vez que a API sobe.
+// ================================================================
 async function ensureCoreTables(connection) {
+    // Tabela de usuários (login, senha guardada como hash + salt)
     if (!(await tableExists(connection, "usuarios"))) {
         await connection.query(`
             CREATE TABLE usuarios (
@@ -51,6 +87,7 @@ async function ensureCoreTables(connection) {
         `);
         console.log("Tabela usuarios criada");
     }
+    // Tabela de livros do catálogo
     if (!(await tableExists(connection, "livros"))) {
         await connection.query(`
             CREATE TABLE livros (
@@ -63,6 +100,7 @@ async function ensureCoreTables(connection) {
         `);
         console.log("Tabela livros criada");
     }
+    // Tabela de reservas/empréstimos, ligando um usuário a um livro
     if (!(await tableExists(connection, "reservas"))) {
         await connection.query(`
             CREATE TABLE reservas (
@@ -79,9 +117,19 @@ async function ensureCoreTables(connection) {
     }
 }
 
+// ================================================================
+//  AUTO-MIGRAÇÃO DO SCHEMA
+//  Roda toda vez que a API sobe (ver databaseConnection). Compara o
+//  banco atual com o que o sistema espera e vai ADICIONANDO o que
+//  falta (colunas novas, ajustes), sem apagar nada que já existe.
+//  Como cada passo primeiro checa "isso já existe?" antes de alterar,
+//  rodar esta função de novo (ou várias vezes) não quebra nada.
+// ================================================================
 async function ensureRuntimeSchema(connection) {
+    // Primeiro garante que as 3 tabelas base existam
     await ensureCoreTables(connection);
 
+    // --- Colunas de senha (hash + salt) em usuarios ---
     const hasPasswordHash = await columnExists(connection, "usuarios", "senha_hash");
     if (!hasPasswordHash) {
         await connection.query("ALTER TABLE usuarios ADD COLUMN senha_hash VARCHAR(255) NOT NULL DEFAULT '' AFTER email");
@@ -90,6 +138,10 @@ async function ensureRuntimeSchema(connection) {
     if (!hasPasswordSalt) {
         await connection.query("ALTER TABLE usuarios ADD COLUMN senha_salt VARCHAR(64) NOT NULL DEFAULT '' AFTER senha_hash");
     }
+    // Usuários "legados" são os que vieram do seed.sql sem senha de
+    // verdade (senha_hash/senha_salt em branco). Para cada um deles,
+    // gera agora um hash real, usando a senha padrão configurada em
+    // DEFAULT_USER_PASSWORD (.env), para que consigam fazer login.
     const [legacyUsers] = await connection.query(
         "SELECT id_usuario FROM usuarios WHERE senha_hash IS NULL OR senha_hash = '' OR senha_salt IS NULL OR senha_salt = ''"
     );
@@ -104,14 +156,18 @@ async function ensureRuntimeSchema(connection) {
         );
     }
 
+    // --- Coluna is_admin em usuarios ---
     const hasIsAdmin = await columnExists(connection, "usuarios", "is_admin");
     if (!hasIsAdmin) {
         await connection.query("ALTER TABLE usuarios ADD COLUMN is_admin BOOLEAN DEFAULT FALSE AFTER senha_salt");
     }
+    // Garante que o admin padrão do sistema sempre seja admin de
+    // verdade, mesmo que a coluna is_admin tenha acabado de ser criada
     await connection.query(
         "UPDATE usuarios SET is_admin = TRUE WHERE email = 'admin@caluralivros.com'"
     );
 
+    // --- Colunas extras em livros ---
     const hasPaginas = await columnExists(connection, "livros", "paginas");
     if (!hasPaginas) {
         await connection.query("ALTER TABLE livros ADD COLUMN paginas INT DEFAULT 0 AFTER autor");
@@ -122,6 +178,7 @@ async function ensureRuntimeSchema(connection) {
         await connection.query("ALTER TABLE livros ADD COLUMN imagem VARCHAR(500) AFTER disponivel");
     }
 
+    // --- Colunas de datas em reservas (empréstimo / previsão / devolução) ---
     const hasDataEmprestimo = await columnExists(connection, "reservas", "data_emprestimo");
     if (!hasDataEmprestimo) {
         await connection.query("ALTER TABLE reservas ADD COLUMN data_emprestimo DATE AFTER data_reserva");
@@ -136,6 +193,14 @@ async function ensureRuntimeSchema(connection) {
     }
 }
 
+// ================================================================
+//  BOOT DA CONEXÃO
+//  Chamada uma vez quando a API sobe: testa se consegue conectar no
+//  MySQL e roda a auto-migração do schema. Se o banco estiver fora
+//  do ar (ou a migração falhar), a API é encerrada com process.exit -
+//  preferimos travar aqui a deixar o servidor no ar "meio vivo",
+//  sem banco de dados disponível.
+// ================================================================
 async function databaseConnection() {
     try {
          const connection = await pool.getConnection(); 
@@ -148,6 +213,12 @@ async function databaseConnection() {
     }
 }
 
+// ================================================================
+//  EXPORTS
+//  pool: usado pelos demais arquivos da API para rodar queries
+//  databaseConnection: chamado no arquivo principal do servidor, para
+//  validar a conexão e migrar o schema assim que a API é iniciada
+// ================================================================
 module.exports = { 
     pool,
     databaseConnection
