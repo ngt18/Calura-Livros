@@ -122,8 +122,7 @@ async function ensureCoreTables(connection) {
 //  Roda toda vez que a API sobe (ver databaseConnection). Compara o
 //  banco atual com o que o sistema espera e vai ADICIONANDO o que
 //  falta (colunas novas, ajustes), sem apagar nada que já existe.
-//  Como cada passo primeiro checa "isso já existe?" antes de alterar,
-//  rodar esta função de novo (ou várias vezes) não quebra nada.
+//  Como cada passo primeiro checa "isso já existe?" antes de alterar.
 // ================================================================
 async function ensureRuntimeSchema(connection) {
     // Primeiro garante que as 3 tabelas base existam

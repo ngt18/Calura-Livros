@@ -44,11 +44,7 @@ RF07 — Devolver livro
 O sistema deve permitir que o usuário (nas suas reservas) ou o administrador registre a devolução de um livro.
 A data de devolução é salva automaticamente (data atual) e o status passa para DEVOLVIDO, liberando o livro no catálogo.
 
-RF08 — Cancelar reserva
-O status CANCELADA faz parte do modelo de reservas e o cancelamento é suportado pela API.
-Observação: não há botão de cancelamento na interface atual — nas telas estão disponíveis apenas a devolução e a exclusão de reservas.
-
-RF09 — Status automático
+RF08 — Status automático
 O status da reserva é calculado automaticamente a partir das datas, a cada leitura das reservas
 (sem tarefa agendada e sem marcação manual na interface):
   - ATIVA (exibida como "Ativo"): a data atual não ultrapassou a data prevista e o livro não foi devolvido
@@ -57,12 +53,11 @@ O status da reserva é calculado automaticamente a partir das datas, a cada leit
   - CANCELADA (exibida como "Cancelado"): reserva cancelada
 Os status DEVOLVIDO e CANCELADA são finais e não voltam a ser recalculados.
 
-RF10 — Editar e excluir registros
+RF09 — Editar e excluir registros
 O sistema deve permitir editar e excluir registros:
   - Livros: cadastrar, editar e excluir pela interface do administrador.
   - Reservas: registrar devolução e excluir pela interface do administrador.
-  - Usuários: edição e exclusão são suportadas pela API, mas não há tela de gerenciamento de usuários na interface atual.
-Ao excluir um livro ou um usuário, as reservas relacionadas também são removidas.
+Ao excluir um livro, as reservas relacionadas também são removidas.
 
 Requisitos Não Funcionais
 
@@ -81,7 +76,7 @@ RNF04 — Compatibilidade
 O sistema é feito em HTML, CSS e JavaScript padrão, funcionando nos navegadores atuais, como Chrome, Edge e Firefox.
 
 RNF05 — Desempenho
-As consultas usam um pool de conexões com o banco, o catálogo é paginado (50 por página) e as consultas são parametrizadas, mantendo o carregamento rápido.
+As consultas usam um pool de conexões com o banco e o catálogo é paginado (50 por página).
 
 RNF06 — Disponibilidade
 O sistema deve estar disponível durante o horário de funcionamento da biblioteca.
